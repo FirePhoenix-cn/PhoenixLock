@@ -226,12 +226,15 @@
     _type = voice;
     [_httppost httpPostWithurl :urlStr body:body];
 
-    _vercodetimer = [[NSTimer alloc] init];
-    _vercodetimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(changetext) userInfo:nil repeats:YES];
-    _hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
-    _hud.label.text = NSLocalizedString(@"等待语音验证...", @"HUD loading title");
-    _hud.delegate = self;
-    [_hud hideAnimated:YES afterDelay:35.0];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        _vercodetimer = [[NSTimer alloc] init];
+        _vercodetimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(changetext) userInfo:nil repeats:YES];
+        _hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
+        _hud.label.text = NSLocalizedString(@"等待语音验证...", @"HUD loading title");
+        _hud.delegate = self;
+        [_hud hideAnimated:YES afterDelay:35.0];
+    });
+    
 }
 
 -(void)hudWasHidden:(MBProgressHUD *)hud

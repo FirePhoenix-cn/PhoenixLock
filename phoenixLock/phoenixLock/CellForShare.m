@@ -91,8 +91,7 @@
                 //写入分享次数
                 
                 [self updateLockMsg:[_managerlock globalcode] withupdate:^(SmartLock *device) {
-                    NSInteger sharenum = [[_managerlock sharenum] integerValue];
-                    device.sharenum = [NSString stringWithFormat:@"%li",(long)sharenum-1];
+                    device.sharenum = [NSString stringWithFormat:@"%li",(long)[device.maxshare integerValue] - [[dic objectForKey:@"oversharenum"] integerValue]];
                 }];
                 //分享成功
                 //更新分享出去的锁的本地列表
@@ -203,10 +202,10 @@
         default:
             break;
     }
-    NSMutableString *time = (NSMutableString*)[NSMutableString stringWithString:[[_datasrc objectAtIndex:indexPath.row] objectForKey:@"begin_time"]];
+    NSMutableString *time = [[[_datasrc objectAtIndex:indexPath.row] objectForKey:@"begin_time"] mutableCopy];
     if ([time isEqualToString:@""])
     {
-        cell0.sharedaccount.text = @"无限制";
+        cell0.sharedtime.text = @"无限制";
     }else
     {
         [time insertString:@" " atIndex:8];
@@ -315,7 +314,7 @@
                                 [_userdefaults objectForKey:@"appToken"],
                                 [_managerlock globalcode],
                                 [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
-                                _accountforshareduser.text, nowdate, @"", nowdate, sign];
+                                _accountforshareduser.text, @"", @"", nowdate, sign];
             
             
             [_httppost httpPostWithurl:urlStr];
@@ -326,7 +325,10 @@
         case 2:
         {
             
-            
+            if ([times[0] isEqualToString:@""] || [times[1] isEqualToString:@""])
+            {
+                return;
+            }
             NSDate *now = [[NSDate alloc] init];
             NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
             [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
@@ -358,7 +360,7 @@
         {
             if ([effectimes isEqualToString:@""])
             {
-                effectimes = @"0";
+                return;
             }
             
             NSDate *now = [[NSDate alloc] init];
@@ -379,7 +381,7 @@
                                 [_userdefaults objectForKey:@"appToken"],
                                 [_managerlock globalcode],
                                 [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
-                                _accountforshareduser.text, effectimes, times[0], times[1], nowdate, sign];
+                                _accountforshareduser.text, effectimes, @"", @"", nowdate, sign];
             [_httppost httpPostWithurl:urlStr];
             _type = addshare;
 
@@ -389,8 +391,12 @@
         case 4:
         {
 
+            if ([times[0] isEqualToString:@""] || [times[1] isEqualToString:@""])
+            {
+                return;
+            }
             if ([effectimes isEqualToString:@""]) {
-                effectimes = @"0";
+                return;
             }
             
             NSDate *now = [[NSDate alloc] init];

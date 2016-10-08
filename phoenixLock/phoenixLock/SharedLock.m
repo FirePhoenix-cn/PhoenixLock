@@ -63,7 +63,6 @@
     for (int i = 0; i < [_datasrcdata count]; i++) {
         [_dataSrc addObject:cell0];
     }
-
 }
 
 
@@ -74,6 +73,7 @@
                        [[[self.userdefaults objectForKey:@"account"] mutableCopy] substringWithRange:NSMakeRange(0, 11)]];
     _posttype = getnewshare;
     [_httppost httpPostWithurl:urlStr];
+    [self.tabView.mj_header performSelector:@selector(endRefreshing) withObject:nil afterDelay:3.0f];
 }
 
 -(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval

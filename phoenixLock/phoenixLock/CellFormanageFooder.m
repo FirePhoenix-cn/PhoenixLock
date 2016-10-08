@@ -275,6 +275,16 @@ httpPostType _type;
 
 -(void)didGetBattery:(NSInteger)battery forMac:(NSData *)mac
 {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+       //上传电量
+        NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=uploaddevbattery&account=%@&apptoken=%@&globalcode=%@&battery=%i",
+                            [_userdefaults objectForKey:@"account"],
+                            [_userdefaults objectForKey:@"appToken"],
+                            self.managerlock.globalcode,battery];
+        urlStr = [urlStr stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+        [_httppost httpPostWithurl:urlStr];
+        _type = uploaddevbattery;
+    });
     dispatch_async(dispatch_get_main_queue(), ^{
         
     if (battery <= 100 && battery > 75)

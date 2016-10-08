@@ -177,9 +177,12 @@
     {
         //说明搜到的是管理员
         //管理员开锁
-        _hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
-        _hud.label.text = NSLocalizedString(@"自动开锁中...", @"HUD loading title");
-        [_hud hideAnimated:YES afterDelay:5.0];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            _hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
+            _hud.label.text = NSLocalizedString(@"自动开锁中...", @"HUD loading title");
+            [_hud hideAnimated:YES afterDelay:5.0];
+        });
+        
             //连接
         [_appDelegate.appLibBleLock bleConnectRequest:mac forbattery:NO];
     }else
@@ -218,10 +221,13 @@
 
             }
             //连接
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
             _hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
             _hud.label.text = NSLocalizedString(@"自动开锁中...", @"HUD loading title");
             [_hud hideAnimated:YES afterDelay:5.0];
-            
+        });
+        
             [_appDelegate.appLibBleLock bleConnectRequest:mac forbattery:NO];
         
     }

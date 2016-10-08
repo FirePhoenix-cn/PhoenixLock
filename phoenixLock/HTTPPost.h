@@ -33,7 +33,8 @@ typedef NS_ENUM(NSUInteger, httpPostType)
     syscontentservice,
     trouble,
     aboutus,
-    checkaccount
+    checkaccount,
+    uploaddevbattery
     
 };
 

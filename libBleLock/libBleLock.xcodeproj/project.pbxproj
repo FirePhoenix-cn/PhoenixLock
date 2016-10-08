@@ -1,0 +1,296 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		63400A121D814139001DE06E /* DataTypeConversion.m in Sources */ = {isa = PBXBuildFile; fileRef = 63400A0A1D814139001DE06E /* DataTypeConversion.m */; };
+		63400A131D814139001DE06E /* libBleLock.m in Sources */ = {isa = PBXBuildFile; fileRef = 63400A0C1D814139001DE06E /* libBleLock.m */; };
+		63400A141D814139001DE06E /* PeripheralDeviceManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 63400A0F1D814139001DE06E /* PeripheralDeviceManager.m */; };
+		63400A151D814139001DE06E /* printLog.m in Sources */ = {isa = PBXBuildFile; fileRef = 63400A111D814139001DE06E /* printLog.m */; };
+		63400A171D814181001DE06E /* libBleLock.h in Headers */ = {isa = PBXBuildFile; fileRef = 63400A0B1D814139001DE06E /* libBleLock.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		63400A181D814184001DE06E /* libBleLockState.h in Headers */ = {isa = PBXBuildFile; fileRef = 63400A0D1D814139001DE06E /* libBleLockState.h */; settings = {ATTRIBUTES = (Public, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		634009FA1D81410E001DE06E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "include/$(PRODUCT_NAME)";
+			dstSubfolderSpec = 16;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		634009FC1D81410E001DE06E /* liblibBleLock.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = liblibBleLock.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		63400A091D814139001DE06E /* DataTypeConversion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DataTypeConversion.h; sourceTree = "<group>"; };
+		63400A0A1D814139001DE06E /* DataTypeConversion.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DataTypeConversion.m; sourceTree = "<group>"; };
+		63400A0B1D814139001DE06E /* libBleLock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = libBleLock.h; sourceTree = "<group>"; };
+		63400A0C1D814139001DE06E /* libBleLock.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = libBleLock.m; sourceTree = "<group>"; };
+		63400A0D1D814139001DE06E /* libBleLockState.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = libBleLockState.h; sourceTree = "<group>"; };
+		63400A0E1D814139001DE06E /* PeripheralDeviceManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PeripheralDeviceManager.h; sourceTree = "<group>"; };
+		63400A0F1D814139001DE06E /* PeripheralDeviceManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PeripheralDeviceManager.m; sourceTree = "<group>"; };
+		63400A101D814139001DE06E /* printLog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = printLog.h; sourceTree = "<group>"; };
+		63400A111D814139001DE06E /* printLog.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = printLog.m; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		634009F91D81410E001DE06E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		634009F31D81410E001DE06E = {
+			isa = PBXGroup;
+			children = (
+				63400A081D814139001DE06E /* libBleLock */,
+				634009FD1D81410E001DE06E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		634009FD1D81410E001DE06E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				634009FC1D81410E001DE06E /* liblibBleLock.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		63400A081D814139001DE06E /* libBleLock */ = {
+			isa = PBXGroup;
+			children = (
+				63400A091D814139001DE06E /* DataTypeConversion.h */,
+				63400A0A1D814139001DE06E /* DataTypeConversion.m */,
+				63400A0B1D814139001DE06E /* libBleLock.h */,
+				63400A0C1D814139001DE06E /* libBleLock.m */,
+				63400A0D1D814139001DE06E /* libBleLockState.h */,
+				63400A0E1D814139001DE06E /* PeripheralDeviceManager.h */,
+				63400A0F1D814139001DE06E /* PeripheralDeviceManager.m */,
+				63400A101D814139001DE06E /* printLog.h */,
+				63400A111D814139001DE06E /* printLog.m */,
+			);
+			path = libBleLock;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		63400A161D814162001DE06E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				63400A171D814181001DE06E /* libBleLock.h in Headers */,
+				63400A181D814184001DE06E /* libBleLockState.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		634009FB1D81410E001DE06E /* libBleLock */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 63400A051D81410E001DE06E /* Build configuration list for PBXNativeTarget "libBleLock" */;
+			buildPhases = (
+				634009F81D81410E001DE06E /* Sources */,
+				634009F91D81410E001DE06E /* Frameworks */,
+				634009FA1D81410E001DE06E /* CopyFiles */,
+				63400A161D814162001DE06E /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libBleLock;
+			productName = libBleLock;
+			productReference = 634009FC1D81410E001DE06E /* liblibBleLock.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		634009F41D81410E001DE06E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0730;
+				ORGANIZATIONNAME = com.jinou.libBleLock;
+				TargetAttributes = {
+					634009FB1D81410E001DE06E = {
+						CreatedOnToolsVersion = 7.3;
+					};
+				};
+			};
+			buildConfigurationList = 634009F71D81410E001DE06E /* Build configuration list for PBXProject "libBleLock" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 634009F31D81410E001DE06E;
+			productRefGroup = 634009FD1D81410E001DE06E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				634009FB1D81410E001DE06E /* libBleLock */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		634009F81D81410E001DE06E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				63400A151D814139001DE06E /* printLog.m in Sources */,
+				63400A131D814139001DE06E /* libBleLock.m in Sources */,
+				63400A121D814139001DE06E /* DataTypeConversion.m in Sources */,
+				63400A141D814139001DE06E /* PeripheralDeviceManager.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		63400A031D81410E001DE06E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		63400A041D81410E001DE06E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		63400A061D81410E001DE06E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_BITCODE = NO;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = (
+					"-ObjC",
+					"$(inherited)",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		63400A071D81410E001DE06E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_BITCODE = NO;
+				OTHER_LDFLAGS = (
+					"-ObjC",
+					"$(inherited)",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		634009F71D81410E001DE06E /* Build configuration list for PBXProject "libBleLock" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				63400A031D81410E001DE06E /* Debug */,
+				63400A041D81410E001DE06E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		63400A051D81410E001DE06E /* Build configuration list for PBXNativeTarget "libBleLock" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				63400A061D81410E001DE06E /* Debug */,
+				63400A071D81410E001DE06E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 634009F41D81410E001DE06E /* Project object */;
+}
