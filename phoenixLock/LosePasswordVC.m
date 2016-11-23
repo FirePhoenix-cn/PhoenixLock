@@ -14,12 +14,12 @@
 {
     BOOL btnlock;
     
-    httpPostType _postType;
-    NSString * _tempPass;
-    NSString * _newPass;
-    NSString * _vercodes;
-    NSString *_orderno;
-    NSInteger _timecount;
+    
+    NSString *tempPass;
+    NSString *newPass;
+    NSString *vercodes;
+    NSString *orderno;
+    NSInteger timecount;
     BOOL isvercoding;
 }
 @property(strong,nonatomic) HTTPPost *httppost;
@@ -43,20 +43,19 @@
     UIBarButtonItem* leftItem = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"goback.png"] style:UIBarButtonItemStylePlain target:self action:@selector(goBack)];
     self.navigationItem.leftBarButtonItem = leftItem;
     
-    _userdefaults = [NSUserDefaults standardUserDefaults];
-    _httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
-    
-    
-    _phonenumber.delegate = self;
-    _orderno = @"";
-    _vercodes = @"";
-    _timecount = 60;
+    self.userdefaults = [NSUserDefaults standardUserDefaults];
+    self.httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
+    self.phonenumber.delegate = self;
+    self.phonenumber.text = [self.userdefaults objectForKey:@"account"];
+    orderno = @"";
+    vercodes = @"";
+    timecount = 60;
 }
 
 -(void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    _httppost.delegate = self;
+    self.httppost.delegate = self;
     
     UIView *subview = [self.view viewWithTag:10];
     CGPoint center = self.view.center;
@@ -67,16 +66,16 @@
 -(void)viewWillDisappear:(BOOL)animated
 {
     [super viewWillDisappear:animated];
-    [_vercodetimer invalidate];
-    _vercodetimer = nil;
-    _timecount = 60;
+    [self.vercodetimer invalidate];
+    self.vercodetimer = nil;
+    timecount = 60;
 }
 
 -(void) goBack
 {
-    _timecount = 60;
-    [_vercodetimer invalidate];
-    _vercodetimer = nil;
+    timecount = 60;
+    [self.vercodetimer invalidate];
+    self.vercodetimer = nil;
     
     [self.navigationController popViewControllerAnimated:YES];
     
@@ -87,25 +86,24 @@
     
 }
 
-
 - (IBAction)retrievePassword:(UIButton *)sender
 {
-    [_phonenumber resignFirstResponder];
-    if ([_vercodes isEqualToString:@""])
+    [self.phonenumber resignFirstResponder];
+    if ([vercodes isEqualToString:@""])
     {
         [self textExamples:@"请先进行语音验证"];
         return;
     }
-    [_verco setTitle:@"请求语音验证" forState:0];
+    [self.verco setTitle:@"请求语音验证" forState:0];
     [self performSelector:@selector(retrievepw) withObject:nil afterDelay:0.1];
     
 }
 
 -(void)retrievepw
 {
-    NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=rempassword&account=%@&mobile=%@&vercode=%@",_phonenumber.text,_phonenumber.text,_vercodes];
-    _postType = rempassword;
-    [_httppost httpPostWithurl:urlStr];
+    NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=rempassword&account=%@&mobile=%@&vercode=%@",self.phonenumber.text,[self.phonenumber.text.mutableCopy substringWithRange:NSMakeRange(0, 11)],vercodes];
+    
+    [self.httppost httpPostWithurl:urlStr type:rempassword];
 }
 
 - (IBAction)getVercode:(UIButton *)sender
@@ -113,15 +111,14 @@
     if (isvercoding) {
         return;
     }
-    _verco = sender;
+    self.verco = sender;
     if (!btnlock)
     {
-        [_phonenumber resignFirstResponder];
+        [self.phonenumber resignFirstResponder];
         //检测账号是否存在
         NSString *urlStr = @"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=checkaccount";
-        NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@",_phonenumber.text];
-        _postType = checkaccount;
-        [_httppost httpPostWithurl :urlStr body:body];
+        NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@",self.phonenumber.text];
+        [self.httppost httpPostWithurl :urlStr body:body type:checkaccount];
         return;
     }
     [self getcode];
@@ -130,7 +127,7 @@
 -(void)getcode
 {
     
-    if ([_phonenumber.text isEqualToString:@""])
+    if ([self.phonenumber.text isEqualToString:@""])
     {
         [self textExamples:@"请输入手机号"];
         return;
@@ -141,17 +138,17 @@
         [self textExamples:@"没有网络！"];
         return;
     }
-    if(_timecount == 60)
+    if(timecount == 60)
     {
-        _orderno = @"";
+        orderno = @"";
         [self getvercode];
-        if (_vercodetimer != nil)
+        if (self.vercodetimer != nil)
         {
-            [_vercodetimer invalidate];
-            _vercodetimer = nil;
+            [self.vercodetimer invalidate];
+            self.vercodetimer = nil;
         }
-        _vercodetimer = [[NSTimer alloc] init];
-        _vercodetimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(changetexts) userInfo:nil repeats:YES];
+        self.vercodetimer = [[NSTimer alloc] init];
+        self.vercodetimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(changetexts) userInfo:nil repeats:YES];
         isvercoding = YES;
     }
 
@@ -159,23 +156,23 @@
 
 -(void)changetexts
 {
-    if ([_orderno isEqualToString:@""])
+    if ([orderno isEqualToString:@""])
     {
         return;
     }
-    [_verco setTitle:[NSString stringWithFormat:@"%li s",(long)_timecount--] forState:0];
-    if (_timecount%2 == 0)
+    [self.verco setTitle:[NSString stringWithFormat:@"%li s",(long)timecount--] forState:0];
+    if (timecount%2 == 0)
     {
-        NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=presskey&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&oerderno=%@",_orderno];
-        _postType = keypress;
-        [_httppost httpPostWithurl:urlStr];
+        NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=presskey&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&oerderno=%@",orderno];
+    
+        [self.httppost httpPostWithurl:urlStr type:keypress];
     }
-    if (_timecount == 1)
+    if (timecount == 1)
     {
-        [_verco setTitle:@"获取语音验证" forState:0];
-        [_vercodetimer invalidate];
-        _vercodetimer = nil;
-        _timecount = 60;
+        [self.verco setTitle:@"获取语音验证" forState:0];
+        [self.vercodetimer invalidate];
+        self.vercodetimer = nil;
+        timecount = 60;
         isvercoding = NO;
     }
 }
@@ -183,22 +180,21 @@
 -(void)getvercode
 {
     NSString *urlStr = @"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=voice";
-    NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@&mobile=%@&module=repassword&vercode=4&veraction=2&vertype=1",_phonenumber.text,_phonenumber.text];
-    _postType = voice;
-    [_httppost httpPostWithurl :urlStr body:body];
+    NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@&mobile=%@&module=repassword&vercode=4&veraction=2&vertype=1",self.phonenumber.text,self.phonenumber.text];
+    [self.httppost httpPostWithurl :urlStr body:body type:voice];
 }
 
 
--(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval
+-(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval type:(httpPostType)type
 {
-    switch (_postType) {
+    switch (type) {
             
         case voice:
         {
             
             if ([[dic objectForKey:@"status"] isEqualToString:@"1"])
             {
-                _orderno = [dic objectForKey:@"orderno"];
+                orderno = [dic objectForKey:@"orderno"];
                 
             }else
             {
@@ -216,25 +212,25 @@
             
             if ([[dic objectForKey:@"status"] isEqualToString:@"1"])
             {
-                _vercodes = [dic objectForKey:@"keyinfo"];
+                vercodes = [dic objectForKey:@"keyinfo"];
                 dispatch_async(dispatch_get_main_queue(), ^
                 {
-                    [_verco setTitle:@"语音验证通过" forState:0];
+                    [self.verco setTitle:@"语音验证通过" forState:0];
                 });
-                [_vercodetimer invalidate];
-                _vercodetimer = nil;
-                _timecount = 60;
+                [self.vercodetimer invalidate];
+                self.vercodetimer = nil;
+                timecount = 60;
                 isvercoding = NO;
             }else if ([[dic objectForKey:@"status"] isEqualToString:@"0"] && ![[dic objectForKey:@"keyinfo"] isEqualToString:@""])
             {
                 //验证失败
                 dispatch_async(dispatch_get_main_queue(), ^
                                {
-                                   [_verco setTitle:@"语音验证失败" forState:0];
+                                   [self.verco setTitle:@"语音验证失败" forState:0];
                                });
-                [_vercodetimer invalidate];
-                _vercodetimer = nil;
-                _timecount = 60;
+                [self.vercodetimer invalidate];
+                self.vercodetimer = nil;
+                timecount = 60;
                 isvercoding = NO;
             }
 
@@ -243,20 +239,20 @@
 
         case rempassword:
         {
-            _dataDic = dic;
-            if ([_dataDic isKindOfClass:[NSDictionary class]]==1)
+            self.dataDic = dic;
+            if ([self.dataDic isKindOfClass:[NSDictionary class]]==1)
             {
-                if ([[_dataDic objectForKey:@"status"] intValue] == 1 && [_dataDic objectForKey:@"password"] != nil)
+                if ([[self.dataDic objectForKey:@"status"] intValue] == 1 && [self.dataDic objectForKey:@"password"] != nil)
                 {
-                    _tempPass = [_dataDic objectForKey:@"password"];
-                    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"找回成功" message:[NSString stringWithFormat:@"临时密码是:%@",[_dataDic objectForKey:@"password"]] preferredStyle:UIAlertControllerStyleAlert];
+                    tempPass = [self.dataDic objectForKey:@"password"];
+                    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"找回成功" message:[NSString stringWithFormat:@"您的新密码是:%@，请登陆修改！该密码仅显示一次，请牢记！",[self.dataDic objectForKey:@"password"]] preferredStyle:UIAlertControllerStyleAlert];
                     [alert addAction:[UIAlertAction actionWithTitle:@"去登陆" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-                        if ([[_userdefaults objectForKey:@"account"] isEqualToString:@""] || [_userdefaults objectForKey:@"account"] == nil)
+                        if ([[self.userdefaults objectForKey:@"account"] isEqualToString:@""] || [self.userdefaults objectForKey:@"account"] == nil)
                         {
-                            [_userdefaults setObject:self.phonenumber.text forKey:@"account"];
+                            [self.userdefaults setObject:self.phonenumber.text forKey:@"account"];
                         }
-                        [_userdefaults setObject:[_dataDic objectForKey:@"password"] forKey:@"password"];
-                        [_userdefaults synchronize];
+                        [self.userdefaults setObject:[self.dataDic objectForKey:@"password"] forKey:@"password"];
+                        [self.userdefaults synchronize];
                         [self.navigationController popViewControllerAnimated:YES];
                     }]];
                     dispatch_async(dispatch_get_main_queue(), ^{
@@ -266,9 +262,9 @@
                 }else
                 {
                     //清空数据
-                    _dataDic = nil;
-                    _vercodes = @"";
-                    _orderno = @"";
+                    self.dataDic = nil;
+                    vercodes = @"";
+                    orderno = @"";
                     [self textExamples:@"找回失败!"];
                 }
             }
@@ -286,7 +282,7 @@
             {
                 [self textExamples:@"该账号不存在"];
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    _phonenumber.text = nil;
+                    self.phonenumber.text = nil;
                    
                 });
             }else
@@ -342,7 +338,7 @@
 -(BOOL)textFieldShouldReturn:(UITextField *)textField
 {
     [textField resignFirstResponder];
-    if ([textField isEqual:_phonenumber])
+    if ([textField isEqual:self.phonenumber])
     {
         if (![CheckCharacter isValidateMobileNumber:textField.text])
         {
@@ -353,18 +349,18 @@
         {
             //检测账号是否存在
             NSString *urlStr = @"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=checkaccount";
-            NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@",_phonenumber.text];
-            _postType = checkaccount;
-            [_httppost httpPostWithurl :urlStr body:body];
+            NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@",self.phonenumber.text];
+            
+            [self.httppost httpPostWithurl :urlStr body:body type:checkaccount];
             btnlock = YES;
         }
     }
     if ([CheckCharacter isValidateMobilePassward:textField.text])
     {
-        _newPass = textField.text;
+        newPass = textField.text;
     }else
     {
-        _newPass = nil;
+        newPass = nil;
     }
     return YES;
 }

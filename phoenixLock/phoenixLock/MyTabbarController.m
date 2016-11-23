@@ -14,11 +14,11 @@
 
 @implementation MyTabbarController
 
-- (void)viewDidLoad {
+- (void)viewDidLoad
+{
     [super viewDidLoad];
     self.delegate = self;
     self.tabBar.tintColor = [UIColor colorFromHexString:@"F8990F"];
-    
 }
 
 - (void)didReceiveMemoryWarning

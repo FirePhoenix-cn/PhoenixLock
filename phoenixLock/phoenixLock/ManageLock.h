@@ -7,16 +7,12 @@
 //
 
 #import "LockViewController.h"
-#import "CellForManageHeader.h"
-#import "CellFormanageFooder.h"
 
-@interface ManageLock : LockViewController<UITableViewDelegate,UITableViewDataSource,CellForManageHeaderDelegate,CellFormanageFooderDelegate,libBleLockDelegate>
+
+@interface ManageLock : LockViewController<UITableViewDelegate,UITableViewDataSource,libBleLockDelegate>
 
 @property(strong, nonatomic) UITableView *tabView;
 @property(retain, nonatomic) NSMutableArray *dataSrc;
-@property(retain, nonatomic) NSArray <SmartLock*>*datasrcdata;
-@property (strong, nonatomic) AppDelegate *appDelegate;
+@property(retain, nonatomic) NSMutableArray <SmartLock*>*datasrcdata;
 @property(assign,nonatomic) BOOL isEdit;
-@property (strong, nonatomic) UIAlertController *aler;
-
 @end

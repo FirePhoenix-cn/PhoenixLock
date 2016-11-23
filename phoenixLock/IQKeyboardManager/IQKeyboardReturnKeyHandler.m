@@ -57,15 +57,20 @@ NSString *const kIQTextFieldReturnKeyType   =   @"kIQTextFieldReturnKeyType";
     return self;
 }
 
--(instancetype)initWithViewController:(UIViewController*)controller
+-(instancetype)initWithViewController:(nullable UIViewController*)controller
 {
     self = [super init];
     
     if (self)
     {
         textFieldInfoCache = [[NSMutableSet alloc] init];
-        [self addResponderFromView:controller.view];
+        
+        if (controller.view)
+        {
+            [self addResponderFromView:controller.view];
+        }
     }
+    
     return self;
 }
 

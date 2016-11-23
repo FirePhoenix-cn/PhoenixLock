@@ -12,10 +12,9 @@
 
 @interface RegisterVC ()<HTTPPostDelegate>
 {
-    NSString * _orderno;
-    NSString * _vercodes;
-    httpPostType _type;
-    NSInteger _timecount;
+    NSString * orderno;
+    NSString * vercodes;
+    NSInteger timecount;
     BOOL iscoding;
 }
 
@@ -30,21 +29,21 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    _setNewAccount.delegate = self;
-    _setPassword.delegate = self;
-    _confirmPassword.delegate = self;
-    _userdefaults = [NSUserDefaults standardUserDefaults];
-    _httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
-    _vercodes = @"";
-    _orderno = @"";
-    _timecount = 60;
+    self.setNewAccount.delegate = self;
+    self.setPassword.delegate = self;
+    self.confirmPassword.delegate = self;
+    self.userdefaults = [NSUserDefaults standardUserDefaults];
+    self.httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
+    vercodes = @"";
+    orderno = @"";
+    timecount = 60;
 }
 
 
 -(void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    _httppost.delegate = self;
+    self.httppost.delegate = self;
     self.navigationController.navigationBarHidden = NO;
     
     UIColor * color = [UIColor whiteColor];
@@ -63,9 +62,9 @@
 
 -(void) goBack
 {
-    _timecount = 60;
-    [_vercodetimer invalidate];
-    _vercodetimer = nil;
+    timecount = 60;
+    [self.vercodetimer invalidate];
+    self.vercodetimer = nil;
     
     [self.navigationController popViewControllerAnimated:YES];
 }
@@ -73,24 +72,22 @@
 //*********************注册验证********************
 - (IBAction)userRigister:(UIButton *)sender
 {
-    if ([_vercodes isEqualToString:@""])
+    if ([vercodes isEqualToString:@""])
     {
         [self textExampleses:@"请先通过语音验证"];
         return;
     }
-    [_verco setTitle:@"请求语音验证" forState:0];
+    [self.verco setTitle:@"请求语音验证" forState:0];
     [self performSelector:@selector(userregist) withObject:nil afterDelay:0.1];
 }
 
 -(void)userregist
 {
     
-    NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=registry&account=%@&password=%@&mobile=%@&vercode=%@&uuid=%@",_setNewAccount.text,_setPassword.text,[_setNewAccount.text.mutableCopy substringWithRange:NSMakeRange(0, 11)],_vercodes,[_userdefaults objectForKey:@"uuid"]];
+    NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=registry&account=%@&password=%@&mobile=%@&vercode=%@&uuid=%@",self.setNewAccount.text,self.setPassword.text,[self.setNewAccount.text.mutableCopy substringWithRange:NSMakeRange(0, 11)],vercodes,[self.userdefaults objectForKey:@"uuid"]];
     
-    [_httppost httpPostWithurl:urlStr];
-    _type = registry;
-    
-    
+    [self.httppost httpPostWithurl:urlStr type:registry];
+
 }
 
 //******************语音验证码获取**********************
@@ -100,49 +97,49 @@
     {
         return;
     }
-    if (_setPassword.text.length == 0 || _setNewAccount.text.length == 0 || _confirmPassword.text.length == 0)
+    if (self.setPassword.text.length == 0 || self.setNewAccount.text.length == 0 || self.confirmPassword.text.length == 0)
     {
-        [_confirmPassword resignFirstResponder];
+        [self.confirmPassword resignFirstResponder];
         [self textExampleses:@"请完善信息后再试"];
         return;
     }
     
-    if ([_setPassword.text isEqualToString:_confirmPassword.text] == 0)
+    if ([self.setPassword.text isEqualToString:self.confirmPassword.text] == 0)
     {
-        [_confirmPassword resignFirstResponder];
+        [self.confirmPassword resignFirstResponder];
         [self textExampleses:@"密码和确认密码不一致"];
-        _confirmPassword.text = @"";
+        self.confirmPassword.text = @"";
         return ;
     }
 
-    [_confirmPassword resignFirstResponder];
+    [self.confirmPassword resignFirstResponder];
     if ([HTTPPost isConnectionAvailable] == NO)
     {
         [self textExampleses:@"没有网络！"];
         return;
     }
-    if(_timecount == 60)
+    if(timecount == 60)
     {
-        _verco = sender;
-        _vercodes = @"";
-        _orderno = @"";
+        self.verco = sender;
+        vercodes = @"";
+        orderno = @"";
         
         NSString *urlStr = @"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=voice";
-        NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@&mobile=%@&module=register&vercode=1&veraction=1&vertype=1",_setNewAccount.text,[_setNewAccount.text.mutableCopy substringWithRange:NSMakeRange(0, 11)]];
-        _type = voice;
+        NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@&mobile=%@&module=register&vercode=1&veraction=1&vertype=1",self.setNewAccount.text,[self.setNewAccount.text.mutableCopy substringWithRange:NSMakeRange(0, 11)]];
+        
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
         {
-            [_httppost httpPostWithurl :urlStr body:body];
+            [self.httppost httpPostWithurl :urlStr body:body type:voice];
         });
-        if (_vercodetimer != nil)
+        if (self.vercodetimer != nil)
         {
-            [_vercodetimer invalidate];
-            _vercodetimer = nil;
+            [self.vercodetimer invalidate];
+            self.vercodetimer = nil;
         }
         iscoding = YES;
-        _vercodetimer = [[NSTimer alloc] init];
+        self.vercodetimer = [[NSTimer alloc] init];
         dispatch_async(dispatch_get_main_queue(), ^{
-            _vercodetimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(changetext1) userInfo:nil repeats:YES];
+            self.vercodetimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(changetext1) userInfo:nil repeats:YES];
         });
         
     }
@@ -150,38 +147,38 @@
 
 -(void)changetext1
 {
-    if ([_orderno isEqualToString:@""])
+    if ([orderno isEqualToString:@""])
     {
         return;
     }
-    [_verco setTitle:[NSString stringWithFormat:@"%li s",(long)_timecount--] forState:0];
-    if (_timecount%2 == 0)
+    [self.verco setTitle:[NSString stringWithFormat:@"%li s",(long)timecount--] forState:0];
+    if (timecount%2 == 0)
     {
-        NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=presskey&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&oerderno=%@",_orderno];
-        _type = keypress;
-        [_httppost httpPostWithurl:urlStr];
+        NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=presskey&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&oerderno=%@",orderno];
+       
+        [self.httppost httpPostWithurl:urlStr type:keypress];
     }
-    if (_timecount == 1)
+    if (timecount == 1)
     {
-        [_verco setTitle:@"获取语音验证" forState:0];
-        [_vercodetimer invalidate];
-        _vercodetimer = nil;
-        _timecount = 60;
+        [self.verco setTitle:@"获取语音验证" forState:0];
+        [self.vercodetimer invalidate];
+        self.vercodetimer = nil;
+        timecount = 60;
         iscoding = NO;
     }
 }
 
 
 
--(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval
+-(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval type:(httpPostType)type
 {
-    switch (_type)
+    switch (type)
     {
         case voice:
         {
             if ([[dic objectForKey:@"status"] isEqualToString:@"1"])
             {
-                _orderno = [dic objectForKey:@"orderno"];
+                orderno = [dic objectForKey:@"orderno"];
                 
             }else
             {
@@ -197,35 +194,35 @@
         {
             if ([[dic objectForKey:@"status"] isEqualToString:@"1"])
             {
-                _vercodes = [dic objectForKey:@"keyinfo"];
+                vercodes = [dic objectForKey:@"keyinfo"];
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    [_verco setTitle:@"语音验证通过" forState:0];
+                    [self.verco setTitle:@"语音验证通过" forState:0];
                 });
-                [_vercodetimer invalidate];
-                _vercodetimer = nil;
-                _timecount = 60;
+                [self.vercodetimer invalidate];
+                self.vercodetimer = nil;
+                timecount = 60;
                 iscoding = NO;
             }else if ([[dic objectForKey:@"status"] isEqualToString:@"-1"])
             {
                 //验证失败
                 dispatch_async(dispatch_get_main_queue(), ^
                                {
-                                   [_verco setTitle:@"语音验证失败" forState:0];
+                                   [self.verco setTitle:@"语音验证失败" forState:0];
                                });
-                [_vercodetimer invalidate];
-                _vercodetimer = nil;
-                _timecount = 60;
+                [self.vercodetimer invalidate];
+                self.vercodetimer = nil;
+                timecount = 60;
                 iscoding = NO;
             }else if ([[dic objectForKey:@"status"] isEqualToString:@"0"] && ![[dic objectForKey:@"keyinfo"] isEqualToString:@""])
             {
                 //验证失败
                 dispatch_async(dispatch_get_main_queue(), ^
                                {
-                                   [_verco setTitle:@"语音验证失败" forState:0];
+                                   [self.verco setTitle:@"语音验证失败" forState:0];
                                });
-                [_vercodetimer invalidate];
-                _vercodetimer = nil;
-                _timecount = 60;
+                [self.vercodetimer invalidate];
+                self.vercodetimer = nil;
+                timecount = 60;
                 iscoding = NO;
             }
 
@@ -243,26 +240,26 @@
             
         case registry:
         {
-            _dataDic = dic;
-            if ([_dataDic isKindOfClass:[NSDictionary class]] == 1)
+            self.dataDic = dic;
+            if ([self.dataDic isKindOfClass:[NSDictionary class]] == 1)
             {
-                if ([[_dataDic objectForKey:@"status"] intValue] == 1)
+                if ([[self.dataDic objectForKey:@"status"] intValue] == 1)
                 {
                     [self textExampleses:@"注册成功"];
-                    [_userdefaults setObject:_setNewAccount.text forKey:@"account"];
-                    [_userdefaults setObject:_setPassword.text forKey:@"password"];
-                    [_userdefaults synchronize];
+                    [self.userdefaults setObject:self.setNewAccount.text forKey:@"account"];
+                    [self.userdefaults setObject:self.setPassword.text forKey:@"password"];
+                    [self.userdefaults synchronize];
                     dispatch_async(dispatch_get_main_queue(), ^{
                         [self.navigationController popViewControllerAnimated:YES];
                     });
                 }else
                 {
                     //清空数据
-                    _dataDic = nil;
-                    _vercodes = @"";
-                    _orderno = @"";
+                    self.dataDic = nil;
+                    vercodes = @"";
+                    orderno = @"";
                     
-                    _timecount = 60;
+                    timecount = 60;
                     [self textExampleses:@"注册失败"];
                 }
             }
@@ -324,9 +321,9 @@
        
         //检测账号是否存在
         NSString *urlStr = @"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=checkaccount";
-        NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@",_setNewAccount.text];
-        _type = checkaccount;
-        [_httppost httpPostWithurl :urlStr body:body];
+        NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@",self.setNewAccount.text];
+        
+        [self.httppost httpPostWithurl :urlStr body:body type:checkaccount];
     }
     return YES;
 }
@@ -341,7 +338,7 @@
             return NO;
         }
         [textField resignFirstResponder];
-        [_setPassword becomeFirstResponder];
+        [self.setPassword becomeFirstResponder];
         return YES;
     }
     
@@ -354,15 +351,15 @@
             return NO;
         }
         [textField resignFirstResponder];
-        [_confirmPassword becomeFirstResponder];
+        [self.confirmPassword becomeFirstResponder];
         return YES;
     }
     if (textField.tag == 11)
     {
-        if ([_setPassword.text isEqualToString:_confirmPassword.text] == 0)
+        if ([self.setPassword.text isEqualToString:self.confirmPassword.text] == 0)
         {
             [self textExampleses:@"密码和确认密码不一致"];
-            _confirmPassword.text = @"";
+            self.confirmPassword.text = @"";
             return NO;
         }
         [textField resignFirstResponder];

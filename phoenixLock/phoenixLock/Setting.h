@@ -9,6 +9,4 @@
 #import <UIKit/UIKit.h>
 #import "ModelViewController.h"
 @interface Setting : ModelViewController
-
-- (IBAction)quit:(UIButton *)sender;
 @end

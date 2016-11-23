@@ -16,10 +16,9 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    // Do any additional setup after loading the view.
     self.title = @"活动";
-    _webview.delegate = self;
-    _webview.scalesPageToFit = YES;
+    self.webview.delegate = self;
+    self.webview.scalesPageToFit = YES;
     self.navigationItem.leftBarButtonItem = nil;
     [NSThread detachNewThreadSelector:@selector(webload) toTarget:self withObject:nil];
 }
@@ -38,7 +37,7 @@
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
     req.HTTPMethod = @"POST";
     url = nil;
-    [_webview loadRequest:req];
+    [self.webview loadRequest:req];
 }
 //开始加载时调用的方法
 - (void)webViewDidStartLoad:(UIWebView *)webView

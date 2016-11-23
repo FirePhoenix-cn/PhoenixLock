@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model userDefinedModelVersionIdentifier="" type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="10137.1" systemVersion="15G31" minimumToolsVersion="Automatic">
+    <entity name="SmartLock" representedClassName="SmartLock" syncable="YES">
+        <attribute name="authcode" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="battery" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="begin_time" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="comucode" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="devid" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="devname" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="devuserid" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="distance" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="effectimes" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="end_time" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="globalcode" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="isactive" optional="YES" attributeType="Boolean" syncable="YES"/>
+        <attribute name="isautounlock" optional="YES" attributeType="Boolean" syncable="YES"/>
+        <attribute name="isdeleted" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="ismaster" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="istoppage" optional="YES" attributeType="Boolean" syncable="YES"/>
+        <attribute name="keytype" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="managename" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="maxshare" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="oper_time" optional="YES" attributeType="Date" syncable="YES"/>
+        <attribute name="productdate" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="sharenum" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="status" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="uuid" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="warrantydate" optional="YES" attributeType="String" syncable="YES"/>
+    </entity>
+    <elements>
+        <element name="SmartLock" positionX="-63" positionY="-18" width="128" height="420"/>
+    </elements>
+</model>

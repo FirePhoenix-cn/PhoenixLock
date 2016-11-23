@@ -13,15 +13,15 @@
 - (void)awakeFromNib {
     [super awakeFromNib];
     
-    self.layer.borderWidth = 1;
+    self.layer.borderWidth = 0.5;
     self.layer.borderColor = [[UIColor lightGrayColor] CGColor];
 }
 
 - (void)setSelected:(BOOL)selected animated:(BOOL)animated {
     [super setSelected:selected animated:animated];
-    if (_name.text.length>13)
+    if (self.name.text.length>13)
     {
-        [_name setFont:[UIFont systemFontOfSize:10]];
+        [self.name setFont:[UIFont systemFontOfSize:10]];
     }
     
 }

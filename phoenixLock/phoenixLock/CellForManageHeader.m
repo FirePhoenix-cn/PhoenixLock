@@ -17,13 +17,9 @@
     self.layer.borderColor = [[UIColor lightGrayColor] CGColor];
 }
 
-- (void)setSelected:(BOOL)selected animated:(BOOL)animated {
-    [super setSelected:selected animated:animated];
-}
-
 - (IBAction)keyBtn:(UIButton *)sender
 {
-    [_delegate changeTag:sender.tag :_path];
+    [self.delegate changeTag:sender.tag :self.path];
 }
 
 @end

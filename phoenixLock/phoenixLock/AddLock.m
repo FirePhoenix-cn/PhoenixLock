@@ -9,12 +9,13 @@
 #import "AddLock.h"
 #import "MD5Code.h"
 #import "MBProgressHUD.h"
+#import "BLEConnect.h"
+
 @interface AddLock ()<HTTPPostDelegate,MBProgressHUDDelegate>
 {
-    httpPostType _type;
-    NSInteger _status;
-    NSString *_orderno;
-    NSString *_vercodes;
+    NSInteger status;
+    NSString *orderno;
+    NSString *vercodes;
 }
 @property(strong, nonatomic) HTTPPost *httppost;
 @property(strong, nonatomic) NSTimer *vercodetimer;
@@ -23,27 +24,36 @@
 
 @implementation AddLock
 
-- (void)viewDidLoad {
+- (void)viewDidLoad
+{
     [super viewDidLoad];
-    _status = 100;
+    status = 100;
     self.title = @"云盾锁";
-    _httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
+    self.httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(stopTimers) name:@"stopSearch" object:nil];
 }
 
 -(void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    _httppost.delegate = self;
+    self.httppost.delegate = self;
+    [self.appDelegate.searchTimer setFireDate:[NSDate distantFuture]];
 }
 
 -(void)viewWillDisappear:(BOOL)animated
 {
     [super viewWillDisappear:animated];
-    [_vercodetimer invalidate];
-    _vercodetimer = nil;
+    self.appDelegate.searchLock = NO;
+    //[self.appDelegate.searchTimer setFireDate:[NSDate distantPast]];
 }
 
-- (void)didReceiveMemoryWarning {
+-(void)stopTimers
+{
+    self.appDelegate.searchLock = YES;
+}
+
+- (void)didReceiveMemoryWarning
+{
     [super didReceiveMemoryWarning];
 }
 
@@ -56,42 +66,45 @@
     NSString *md5string = [NSString stringWithFormat:@"account=%@&apptoken=%@&globalcode=%@&oper_time=%@&uuid=%@&signkey=22jiadfw12e1212jadf9sdafkwezzxwe",
                            [self.userdefaults objectForKey:@"account"],
                            [self.userdefaults objectForKey:@"appToken"],
-                           _GUID,strDate,
+                           self.globalcode,strDate,
                            [self.userdefaults objectForKey:@"uuid"]];
     NSString *sign = [MD5Code md5:md5string];
-    NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=adddev&account=%@&apptoken=%@&globalcode=%@&uuid=%@&oper_time=%@&sign=%@&devcode=%@&devname=phoenixlock",
+    NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=adddev&account=%@&apptoken=%@&globalcode=%@&uuid=%@&oper_time=%@&sign=%@&devcode=%@&devname=PHLock",
                        [self.userdefaults objectForKey:@"account"],
-                       [self.userdefaults objectForKey:@"appToken"],_GUID,[self.userdefaults objectForKey:@"uuid"],strDate,sign,_vercodes];
-    [_httppost httpPostWithurl:urlStr];
-    _type = adddev;
+                       [self.userdefaults objectForKey:@"appToken"],self.globalcode,[self.userdefaults objectForKey:@"uuid"],strDate,sign,vercodes];
+    [self.httppost httpPostWithurl:urlStr type:adddev];
 
 }
 
 -(void) goBack
 {
+    [self.appDelegate.searchTimer setFireDate:[NSDate distantPast]];
     [self.navigationController popViewControllerAnimated:YES];
 }
 
-- (IBAction)scanQRCode:(UIButton *)sender {
-    
-    if (_GUID == nil )
+- (IBAction)scanQRCode:(UIButton *)sender
+{
+    if (self.globalcode == nil )
     {
         QRReaderViewController *VC = [[QRReaderViewController alloc] init];
         VC.delegate = self;
         [self.navigationController pushViewController:VC animated:YES];
-    }else if(_status == 100)
+    }else if(status == 100)
     {
-        _orderno = @"";
+        orderno = @"";
         [self vioceCheck];
         
-    }else if (_status == 1)
+    }else if (status == 1)
     {
+        UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"AddLock" bundle:nil];
+        BLEConnect *next = (BLEConnect*)[storyboard instantiateViewControllerWithIdentifier:@"bleconnect"];
+        next.guid = [self NSStringConversionToNSData:self.globalcode];
+        next.scrC = [self NSStringConversionToNSData:self.sc];
+        next.scrD = [self NSStringConversionToNSData:self.sd];
         dispatch_async(dispatch_get_main_queue(), ^{
-            UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"AddLock" bundle:nil];
-            UIViewController *next = (UIViewController*)[storyboard instantiateViewControllerWithIdentifier:@"bleconnect"];
             [self.navigationController pushViewController:next animated:YES];
         });
-    }else if(_status == -6)
+    }else if(status == -6)
     {
         dispatch_async(dispatch_get_main_queue(), ^{
             MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
@@ -103,11 +116,11 @@
             
             [hud hideAnimated:YES afterDelay:3.f];
             
-            _GUID = nil;
-            _status = 100;
-            [_btn setTitle:@"扫描全球码" forState:UIControlStateNormal];
+            self.globalcode = nil;
+            status = 100;
+            [self.btn setTitle:@"扫描全球码" forState:UIControlStateNormal];
         });
-    }else if(_status == -7)
+    }else if(status == -7)
     {
         dispatch_async(dispatch_get_main_queue(), ^{
             MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
@@ -119,11 +132,11 @@
             
             [hud hideAnimated:YES afterDelay:3.f];
             
-            _GUID = nil;
-            _status = 100;
-            [_btn setTitle:@"扫描全球码" forState:UIControlStateNormal];
+            self.globalcode = nil;
+            status = 100;
+            [self.btn setTitle:@"扫描全球码" forState:UIControlStateNormal];
         });
-    }else if(_status == -5)
+    }else if(status == -5)
     {
         dispatch_async(dispatch_get_main_queue(), ^{
             MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
@@ -132,37 +145,34 @@
             hud.label.text = NSLocalizedString(@"添加失败,设备不存在", @"HUD message title");
             // Move to bottm center.
             hud.offset = CGPointMake(0.f, 20.f);
-            
             [hud hideAnimated:YES afterDelay:3.f];
-            
-            _GUID = nil;
-            _status = 100;
-            [_btn setTitle:@"扫描全球码" forState:UIControlStateNormal];
+            self.globalcode = nil;
+            status = 100;
+            [self.btn setTitle:@"扫描全球码" forState:UIControlStateNormal];
         });
         
     }
 }
 
--(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval
+-(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval type:(httpPostType)type
 {
-
-    switch (_type)
+    switch (type)
     {
         case voice:
         {
             if ([[dic objectForKey:@"status"] isEqualToString:@"1"])
             {
-                _orderno = [dic objectForKey:@"orderno"];
+                orderno = [dic objectForKey:@"orderno"];
             }else if([[dic objectForKey:@"status"] integerValue] == -12)
             {
-                _GUID = nil;
-                _status = 100;
+                self.globalcode = nil;
+                status = 100;
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    [_vercodetimer invalidate];
-                    _vercodetimer = nil;
-                    [_hud hideAnimated:YES];
+                    [self.vercodetimer invalidate];
+                    self.vercodetimer = nil;
+                    [self.hud hideAnimated:YES];
                     [self textExample];
-                    [_btn setTitle:@"扫描全球码" forState:UIControlStateNormal];
+                    [self.btn setTitle:@"扫描全球码" forState:UIControlStateNormal];
                 });
             }
         }
@@ -174,13 +184,13 @@
         {
             if ([[dic objectForKey:@"status"] isEqualToString:@"1"])
             {
-                _vercodes = [dic objectForKey:@"keyinfo"];
-                [_vercodetimer invalidate];
-                _vercodetimer = nil;
+                vercodes = [dic objectForKey:@"keyinfo"];
+                [self.vercodetimer invalidate];
+                self.vercodetimer = nil;
                 [self active];
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    [_hud hideAnimated:YES];
-                    [_btn setTitle:@"开始绑定" forState:UIControlStateNormal];
+                    [self.hud hideAnimated:YES];
+                    [self.btn setTitle:@"绑定云盾锁" forState:UIControlStateNormal];
                 });
                 
             }else if ([[dic objectForKey:@"status"] isEqualToString:@"0"] && ![[dic objectForKey:@"keyinfo"] isEqualToString:@""])
@@ -188,9 +198,9 @@
                 //验证失败
                 dispatch_async(dispatch_get_main_queue(), ^
                                {
-                                   [_vercodetimer invalidate];
-                                   _vercodetimer = nil;
-                                   [_hud hideAnimated:YES];
+                                   [self.vercodetimer invalidate];
+                                   self.vercodetimer = nil;
+                                   [self.hud hideAnimated:YES];
                                    [self textExample];
                                });
             }
@@ -200,15 +210,15 @@
         {
             if ([[dic objectForKey:@"status"] integerValue] == 1)
             {
-                [self.userdefaults setObject:[dic objectForKey:@"maxshare"] forKey:@"maxshare"];
+                [self.userdefaults setObject:[dic objectForKey:@"maxshare"] forKey:@"numforkey"];
                 [self.userdefaults setObject:[dic objectForKey:@"productdate"] forKey:@"productdate"];
                 [self.userdefaults setObject:[dic objectForKey:@"warrantydate"] forKey:@"warrantydate"];
                 [self.userdefaults setObject:[dic objectForKey:@"devid"] forKey:@"devid"];
-                [self.userdefaults setObject:[dic objectForKey:@"devcode"] forKey:@"sc"];//nsstring临时
-                [self.userdefaults setObject:[dic objectForKey:@"authcode"] forKey:@"sd"];
                 [self.userdefaults synchronize];
+                self.sc = [dic objectForKey:@"devcode"];
+                self.sd = [dic objectForKey:@"authcode"];
             }
-            _status = [[dic objectForKey:@"status"] integerValue];
+            status = [[dic objectForKey:@"status"] integerValue];
             
         }break;
             
@@ -222,68 +232,62 @@
 {
     /**********语音验证***********/
     NSString *urlStr = @"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=voice";
-    NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@&mobile=%@&module=adddev&vercode=3&veraction=2&vertype=1",[self.userdefaults objectForKey:@"account"],[self.userdefaults objectForKey:@"account"]];
-    _type = voice;
-    [_httppost httpPostWithurl :urlStr body:body];
-
+    NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@&mobile=%@&module=adddev&vercode=5&veraction=2&vertype=1",[self.userdefaults objectForKey:@"account"],[self.userdefaults objectForKey:@"account"]];
+    [self.httppost httpPostWithurl :urlStr body:body type:voice];
     dispatch_async(dispatch_get_main_queue(), ^{
-        _vercodetimer = [[NSTimer alloc] init];
-        _vercodetimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(changetext) userInfo:nil repeats:YES];
-        _hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
-        _hud.label.text = NSLocalizedString(@"等待语音验证...", @"HUD loading title");
-        _hud.delegate = self;
-        [_hud hideAnimated:YES afterDelay:35.0];
+        self.vercodetimer = [[NSTimer alloc] init];
+        self.vercodetimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(changetext) userInfo:nil repeats:YES];
+        self.hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
+        self.hud.label.text = NSLocalizedString(@"等待语音验证...", @"HUD loading title");
+        self.hud.delegate = self;
+        [self.hud hideAnimated:YES afterDelay:35.0];
     });
     
 }
 
 -(void)hudWasHidden:(MBProgressHUD *)hud
 {
-    if (_vercodetimer == nil)
+    if (self.vercodetimer == nil)
     {
         return;
     }
-    [_vercodetimer invalidate];
-    _vercodetimer = nil;
-    _GUID = nil;
-    _status = 100;
-    [_btn setTitle:@"扫描全球码" forState:UIControlStateNormal];
+    [self.vercodetimer invalidate];
+    self.vercodetimer = nil;
+    self.globalcode = nil;
+    status = 100;
+    [self.btn setTitle:@"扫描全球码" forState:UIControlStateNormal];
     [self textExample];
 }
 
 - (void)textExample
 {
-    MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
-    
-    // Set the annular determinate mode to show task progress.
-    hud.mode = MBProgressHUDModeText;
-    hud.label.text = NSLocalizedString(@"验证失败，请稍后重试", @"HUD message title");
-    // Move to bottm center.
-    hud.offset = CGPointMake(0.f, 20.f);
-    
-    [hud hideAnimated:YES afterDelay:3.f];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
+        hud.mode = MBProgressHUDModeText;
+        hud.label.text = NSLocalizedString(@"验证失败，请稍后重试", @"HUD message title");
+        hud.offset = CGPointMake(0.f, 20.f);
+        [hud hideAnimated:YES afterDelay:3.f];
+    });
 }
-
 
 -(void)changetext
 {
-    if ([_orderno isEqualToString:@""])
+    if ([orderno isEqualToString:@""])
     {
         return;
     }
-    NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=presskey&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&oerderno=%@",_orderno];
-    _type = keypress;
-    [_httppost httpPostWithurl:urlStr];
+    NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=presskey&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&oerderno=%@",orderno];
+    [self.httppost httpPostWithurl:urlStr type:keypress];
 }
 
 
 /*****************QR协议函数实现***************/
 - (void)didFinishedReadingQR:(NSString *)string
 {
-    _GUID = string;
+    self.globalcode = string;
     [self.userdefaults setObject:string forKey:@"guid"];//临时保存(添加绑定后清除)
     [self.userdefaults synchronize];
-    [_btn setTitle:@"获取验证码" forState:UIControlStateNormal];
+    [self.btn setTitle:@"获取验证码" forState:UIControlStateNormal];
 }
 
 @end

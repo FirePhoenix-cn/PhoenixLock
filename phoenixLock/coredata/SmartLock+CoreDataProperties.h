@@ -2,43 +2,46 @@
 //  SmartLock+CoreDataProperties.h
 //  phoenixLock
 //
-//  Created by jinou on 16/9/27.
+//  Created by jinou on 16/11/21.
 //  Copyright © 2016年 jinou. All rights reserved.
 //
-//  Choose "Create NSManagedObject Subclass…" from the Core Data editor menu
-//  to delete and recreate this implementation file for your updated model.
-//
 
-#import "SmartLock.h"
+#import "SmartLock+CoreDataClass.h"
+
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface SmartLock (CoreDataProperties)
 
-@property (nullable, nonatomic, retain) NSString *devuserid;
-@property (nullable, nonatomic, retain) NSString *globalcode;
-@property (nullable, nonatomic, retain) NSString *uuid;
-@property (nullable, nonatomic, retain) NSString *authcode;
-@property (nullable, nonatomic, retain) NSString *comucode;
-@property (nullable, nonatomic, retain) NSString *devname;
-@property (nullable, nonatomic, retain) NSString *managename;
-@property (nullable, nonatomic, retain) NSString *ismaster;
-@property (nullable, nonatomic, retain) NSString *keytype;
-@property (nullable, nonatomic, retain) NSString *effectimes;
-@property (nullable, nonatomic, retain) NSString *begin_time;
-@property (nullable, nonatomic, retain) NSString *end_time;
++ (NSFetchRequest<SmartLock *> *)fetchRequest;
 
-@property (nullable, nonatomic, retain) NSString *productdate;
-@property (nullable, nonatomic, retain) NSString *warrantydate;
-@property (nullable, nonatomic, retain) NSString *maxshare;
-@property (nullable, nonatomic, retain) NSString *sharenum;
-@property (nullable, nonatomic, retain) NSString *distance;
-@property (nullable, nonatomic, retain) NSString *battery;
-@property (nullable, nonatomic, retain) NSNumber *isactive;
-@property (nullable, nonatomic, retain) NSNumber *istoppage;
-@property (nullable, nonatomic, retain) NSNumber *isautounlock;
-@property (nullable, nonatomic, retain) NSDate *oper_time;
-@property (nullable, nonatomic, retain) NSString *isdeleted;
+@property (nullable, nonatomic, copy) NSString *authcode;
+@property (nullable, nonatomic, copy) NSString *battery;
+@property (nullable, nonatomic, copy) NSString *begin_time;
+@property (nullable, nonatomic, copy) NSString *comucode;
+@property (nullable, nonatomic, copy) NSString *devid;
+@property (nullable, nonatomic, copy) NSString *devname;
+@property (nullable, nonatomic, copy) NSString *devuserid;
+@property (nullable, nonatomic, copy) NSString *distance;
+@property (nullable, nonatomic, copy) NSString *effectimes;
+@property (nullable, nonatomic, copy) NSString *end_time;
+@property (nullable, nonatomic, copy) NSString *globalcode;
+@property (nullable, nonatomic, copy) NSNumber *isactive;
+@property (nullable, nonatomic, copy) NSNumber *isautounlock;
+@property (nullable, nonatomic, copy) NSString *isdeleted;
+@property (nullable, nonatomic, copy) NSString *ismaster;
+@property (nullable, nonatomic, copy) NSNumber *istoppage;
+@property (nullable, nonatomic, copy) NSString *keytype;
+@property (nullable, nonatomic, copy) NSString *managename;
+@property (nullable, nonatomic, copy) NSString *maxshare;
+@property (nullable, nonatomic, copy) NSDate *oper_time;
+@property (nullable, nonatomic, copy) NSString *productdate;
+@property (nullable, nonatomic, copy) NSString *sharenum;
+@property (nullable, nonatomic, copy) NSString *status;
+@property (nullable, nonatomic, copy) NSString *uuid;
+@property (nullable, nonatomic, copy) NSString *warrantydate;
+@property (nullable, nonatomic, copy) NSString *sharetimes;
+@property (nullable, nonatomic, copy) NSString *usedtimes;
 
 @end
 

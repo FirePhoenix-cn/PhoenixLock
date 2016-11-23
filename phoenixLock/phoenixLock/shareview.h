@@ -11,8 +11,6 @@
 -(void)cancel;
 @end
 @interface shareview : UIView
-- (IBAction)cancel:(UIButton *)sender;
-- (IBAction)share:(UIButton *)sender;
 @property(strong, nonatomic) NSString* title;
 @property(strong, nonatomic) NSString* pic;
 @property(strong, nonatomic) NSString* url;

@@ -34,13 +34,17 @@ typedef NS_ENUM(NSUInteger, httpPostType)
     trouble,
     aboutus,
     checkaccount,
-    uploaddevbattery
+    uploaddevbattery,
+    uploaddevdistance,
+    getpicshare,
+    opencheck,
+    downloadmylog
     
 };
 
 @protocol HTTPPostDelegate <NSObject>
 
--(void)didRecieveData:(NSDictionary*)dic withTimeinterval:(NSTimeInterval)interval;
+-(void)didRecieveData:(NSDictionary*)dic withTimeinterval:(NSTimeInterval)interval type:(httpPostType)type;
 
 @end
 
@@ -48,7 +52,6 @@ typedef NS_ENUM(NSUInteger, httpPostType)
 @property(weak, nonatomic) id<HTTPPostDelegate> delegate;
 @property (nonatomic, strong) NSURLSession *session;
 + (BOOL)isConnectionAvailable;
-+ (NSString *) NSDataConversionToNSString:(NSData*)data;
--(void)httpPostWithurl:(NSString*)urlString;
--(void)httpPostWithurl:(NSString*)urlString body:(NSString*)body;
+-(void)httpPostWithurl:(NSString*)urlString type:(httpPostType)type;
+-(void)httpPostWithurl:(NSString*)urlString body:(NSString*)body type:(httpPostType)type;
 @end

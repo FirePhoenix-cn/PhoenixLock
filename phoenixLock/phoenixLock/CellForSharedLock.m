@@ -10,19 +10,20 @@
 
 @implementation CellForSharedLock
 
-- (void)awakeFromNib {
+- (void)awakeFromNib
+{
     [super awakeFromNib];
+}
+
+-(void)drawRect:(CGRect)rect
+{
+    [super drawRect:rect];
     self.layer.borderWidth = 1;
     self.layer.borderColor = [[UIColor lightGrayColor] CGColor];
 }
 
-- (void)setSelected:(BOOL)selected animated:(BOOL)animated
-{
-    [super setSelected:selected animated:animated];
-}
-
 - (IBAction)pressBtn:(UIButton *)sender
 {
-    [_delegate changeTag:sender.tag :_path];
+    [self.delegate changeTag:sender.tag :self.path];
 }
 @end

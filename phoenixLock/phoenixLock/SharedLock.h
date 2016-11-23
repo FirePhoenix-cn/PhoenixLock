@@ -13,7 +13,6 @@
 
 @property(strong, nonatomic) UITableView *tabView;
 @property(retain, nonatomic) NSMutableArray *dataSrc;
-@property (strong, nonatomic) AppDelegate *appDelegate;
 @property(assign,nonatomic) BOOL isEdit;
 @property(retain, nonatomic) NSMutableArray <SmartLock*>*datasrcdata;
 @end

@@ -18,16 +18,9 @@
 {
     [super viewDidLoad];
     self.title = @"商城";
-    _webview.delegate = self;
-    _webview.scalesPageToFit = YES;
+    self.webview.delegate = self;
+    self.webview.scalesPageToFit = YES;
     [NSThread detachNewThreadSelector:@selector(webload) toTarget:self withObject:nil];
-}
-
--(void)viewWillAppear:(BOOL)animated
-{
-    [super viewWillAppear:animated];
-    
-    
 }
 
 -(void)webload
@@ -39,7 +32,7 @@
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
     req.HTTPMethod = @"POST";
     url = nil;
-    [_webview loadRequest:req];
+    [self.webview loadRequest:req];
 }
 
 - (void)didReceiveMemoryWarning
@@ -66,6 +59,6 @@
 
 -(void) goBack
 {
-    [_webview goBack];
+    [self.webview goBack];
 }
 @end

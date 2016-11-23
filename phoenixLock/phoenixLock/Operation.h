@@ -11,6 +11,5 @@
 @interface Operation : ModelViewController
 @property (strong, nonatomic) IBOutlet UILabel *phone;
 @property (strong, nonatomic) IBOutlet UILabel *version;
-- (IBAction)clickbtton:(UIButton *)sender;
 
 @end

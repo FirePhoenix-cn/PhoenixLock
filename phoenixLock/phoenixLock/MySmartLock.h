@@ -10,7 +10,4 @@
 
 @interface MySmartLock : LockViewController
 
-- (IBAction)addlock:(UIButton *)sender;
-
-
 @end

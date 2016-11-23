@@ -7,184 +7,322 @@
 //
 
 #import "MyLock.h"
-#import "MyCell.h"
 #import "MySmartLock.h"
 #import "SmartAccount.h"
 #import "SmartApp.h"
 #import "MBProgressHUD.h"
-#import "SmartLock.h"
+#import "MD5Code.h"
+#import "CollectionViewCell.h"
 
 @interface MyLock ()<HTTPPostDelegate>
-{
-    httpPostType _posttype;
-}
 @property(strong, nonatomic) NSArray<SmartLock*>* datasrcdata;
 @property(strong, nonatomic) SmartLock *selectedlock;
-@property (strong,nonatomic) HTTPPost *httppost;
-@property (retain,nonatomic) NSMutableArray *datasrcmanager;
-@property (retain,nonatomic) NSMutableArray *datasrcshare;
-@property (retain, nonatomic) AppDelegate *appDelegate;
-@property (retain ,nonatomic) NSMutableArray *rssi;
-@property (strong,nonatomic) NSMutableArray *wirelesslog;
-@property(strong, nonatomic) MBProgressHUD *hud;
+@property(strong, nonatomic) HTTPPost *httppost;
+@property(retain, nonatomic) NSMutableArray *datasrcmanager;
+@property(retain, nonatomic) NSMutableArray *datasrcshare;
+@property(retain, nonatomic) NSMutableArray *rssi;
+@property(strong, nonatomic) NSMutableArray *wirelesslog;
+@property(strong, nonatomic) MBProgressHUD *progressLoadingHud;
+@property(strong, nonatomic) UISwipeGestureRecognizer *leftSwipe;
+@property(strong, nonatomic) NSData *mac;
+
 @end
 
 @implementation MyLock
+
+#pragma mark - lifeCycle
 - (void)viewDidLoad
 {
     [super viewDidLoad];
     /*****************导航栏初始化格式************/
-    self.view.backgroundColor = [UIColor whiteColor];
+    self.navigationItem.leftBarButtonItem = nil;;
     self.title = @"云盾锁";
-    UIColor * color = [UIColor whiteColor];
-    NSDictionary * dict = [NSDictionary dictionaryWithObject:color forKey:NSForegroundColorAttributeName];
-    self.navigationController.navigationBar.titleTextAttributes = dict;//标题颜色
-    self.navigationController.navigationBar.tintColor = [UIColor whiteColor];//按钮颜色
-    self.navigationController.navigationBar.barTintColor = [UIColor darkGrayColor];//状态栏颜色
-    
     UIBarButtonItem *rightitem = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"goma.png"] style:UIBarButtonItemStylePlain target:self action:@selector(goset)];
     self.navigationItem.rightBarButtonItem = rightitem;
-    
+    self.leftSwipe = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(goset)];
+    self.leftSwipe.direction = UISwipeGestureRecognizerDirectionLeft;
+    [self.view addGestureRecognizer:self.leftSwipe];
     /****************集合视图代初始化******************/
-    _mangedLock.delegate = self;
-    _mangedLock.dataSource = self;
-    _sharedLock.delegate = self;
-    _sharedLock.dataSource = self;
-    _mangedLock.showsVerticalScrollIndicator = NO;
-    _sharedLock.showsVerticalScrollIndicator = NO;
-    /******************数据持久化********************/
-    
-    _userdefaults = [NSUserDefaults standardUserDefaults];
-    
-    
-    
-    if([_userdefaults objectForKey:@"quitapp"] == nil){
-        [_userdefaults setBool:YES forKey:@"quitapp"];
-    }
-    
-    if([_userdefaults objectForKey:@"wirelesslog"] == nil)
+    self.mangedLock.delegate = self;
+    self.mangedLock.dataSource = self;
+    self.sharedLock.delegate = self;
+    self.sharedLock.dataSource = self;
+    self.mangedLock.showsVerticalScrollIndicator = NO;
+    self.sharedLock.showsVerticalScrollIndicator = NO;
+    [self.mangedLock registerNib:[UINib nibWithNibName:@"CollectionViewCell" bundle:nil] forCellWithReuseIdentifier:@"CollectionViewCell"];
+    [self.sharedLock registerNib:[UINib nibWithNibName:@"CollectionViewCell" bundle:nil] forCellWithReuseIdentifier:@"CollectionViewCell"];
+    if([self.userdefaults objectForKey:@"quitapp"] == nil)
     {
-        [_userdefaults setObject:[NSArray array] forKey:@"wirelesslog"];
+        [self.userdefaults setBool:YES forKey:@"quitapp"];
     }
-    
-    [_userdefaults setInteger:1 forKey:@"canautounlock"];
-    [_userdefaults synchronize];
-    
-    _appDelegate = (AppDelegate *)[[UIApplication sharedApplication] delegate];
-    _httppost = _appDelegate.delegatehttppost;
+    if([self.userdefaults objectForKey:@"wirelesslog"] == nil)
+    {
+        [self.userdefaults setObject:[NSArray array] forKey:@"wirelesslog"];
+    }
+    self.httppost = self.appDelegate.delegatehttppost;
+    self.httppost.delegate = self;
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(startTimer) name:@"startSearch" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(closeProgresshud) name:@"closeProgress" object:nil];
+    if ([[self.userdefaults objectForKey:@"quitapp"] boolValue] == YES)
+    {
+        //上次退出登录，去登陆页面
+        dispatch_async(dispatch_get_main_queue(), ^{
+                           UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"Login" bundle:nil];
+                           UIViewController *next = (UIViewController*)[storyboard instantiateViewControllerWithIdentifier:@"loginpage"];
+                           [self.navigationController pushViewController:next animated:YES];
+                       });
+        return;
+    }
+    SENDNOTIFY(@"startSearch")
     
 }
 
 -(void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    _httppost.delegate = self;
-    
+    self.httppost.delegate = self;
     self.navigationController.navigationBarHidden = NO;
     self.tabBarController.tabBar.hidden = NO;
-    if ([[_userdefaults objectForKey:@"quitapp"] boolValue] == YES)
+    [self loadTopPageData];
+    [self synauthdate];
+}
+
+- (void)didReceiveMemoryWarning
+{
+    [super didReceiveMemoryWarning];
+}
+
+#pragma mark - pravete methord
+
+-(void)synauthdate
+{
+    if ([HTTPPost isConnectionAvailable])
     {
-        //上次退出登录，去登陆页面
-        dispatch_async(dispatch_get_main_queue(), ^
+        NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=synauth&account=%@&apptoken=%@&uuid=%@",[self.userdefaults objectForKey:@"account"],
+                           [self.userdefaults objectForKey:@"appToken"],
+                           [self.userdefaults objectForKey:@"uuid"]];
+        [self.httppost httpPostWithurl:urlStr type:synauth];
+    }
+}
+
+-(void)startTimer
+{
+    if (self.appDelegate.searchTimer) {
+        [self.appDelegate.searchTimer invalidate];
+        self.appDelegate.searchTimer = nil;
+    }
+    self.appDelegate.searchTimer = [NSTimer scheduledTimerWithTimeInterval:4 target:self selector:@selector(searchForAutounlock) userInfo:nil repeats:YES];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self searchForAutounlock];
+    });
+}
+
+-(MBProgressHUD *)progressLoadingHud
+{
+    if (!_progressLoadingHud) {
+        _progressLoadingHud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
+        _progressLoadingHud.mode = MBProgressHUDModeIndeterminate;
+        _progressLoadingHud.label.text = NSLocalizedString(@"正在自动开锁", @"");
+        [_progressLoadingHud hideAnimated:YES];
+    }
+    return _progressLoadingHud;
+}
+
+-(void)loadTopPageData
+{
+    NSMutableArray *topTemp = [NSMutableArray arrayWithArray:[[self getAllTopPageLock] mutableCopy]];
+    if (self.datasrcmanager)
+    {
+        [self.datasrcmanager removeAllObjects];
+        [self.datasrcshare removeAllObjects];
+    }else
+    {
+        self.datasrcmanager = [NSMutableArray array];
+        self.datasrcshare = [NSMutableArray array];
+    }
+    for (SmartLock *lock in topTemp)
+    {
+        if ([lock.ismaster isEqualToString:@"0"])
         {
-            UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"Login" bundle:nil];
-            UIViewController *next = (UIViewController*)[storyboard instantiateViewControllerWithIdentifier:@"loginpage"];
-            [self.navigationController pushViewController:next animated:YES];
+            [self.datasrcshare addObject:lock];
+        }else
+        {
+            [self.datasrcmanager addObject:lock];
+        }
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.mangedLock reloadData];
+        [self.sharedLock reloadData];
+    });
+}
+
+-(void)searchForAutounlock
+{
+    if (self.appDelegate.searchLock == YES) {
+        return;
+    }
+    self.datasrcdata = nil;
+    self.datasrcdata = [NSArray arrayWithArray:[self getAllAutoUnlockedLock]];
+    if (self.datasrcdata.count==0)
+    {
+        return;
+    }
+    self.rssi = [[NSMutableArray alloc] init];
+    self.appDelegate.appLibBleLock.delegate = self;
+    [self.appDelegate.appLibBleLock bleCancelInquiry];
+    [self.appDelegate.appLibBleLock bleInquiry:3];
+}
+
+-(void)closeProgresshud
+{
+    if (_progressLoadingHud == nil) {
+        return;
+    }
+    [self.progressLoadingHud hideAnimated:YES];
+    self.progressLoadingHud = nil;
+}
+
+-(void)uploadlog:(NSInteger)status
+{
+    //上传日志
+    [self.appDelegate.searchTimer setFireDate:[NSDate distantPast]];
+    if ([self.selectedlock.ismaster isEqualToString:@"0"])
+    {
+        NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+        [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
+        NSString *strDate = [dateFormatter stringFromDate:[[NSDate alloc] init]];
+        
+        NSString *signString = [NSString stringWithFormat:@"account=%@&apptoken=%@&authcode=%@&globalcode=%@&oper_time=%@&uuid=%@&signkey=22jiadfw12e1212jadf9sdafkwezzxwe",
+                                [self.userdefaults objectForKey:@"account"],
+                                [self.userdefaults objectForKey:@"appToken"],
+                                self.selectedlock.authcode,
+                                self.selectedlock.globalcode,
+                                strDate,[self.userdefaults objectForKey:@"uuid"]];
+        NSString *sign = [MD5Code md5:signString];
+        
+        NSString *url = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=opencheck&account=%@&apptoken=%@&globalcode=%@&authcode=%@&uuid=%@&oper_time=%@&oper_status=%li&sign=%@",
+                         [self.userdefaults objectForKey:@"account"],
+                         [self.userdefaults objectForKey:@"appToken"],
+                         self.selectedlock.globalcode,
+                         self.selectedlock.authcode,
+                         [self.userdefaults objectForKey:@"uuid"],strDate,(long)status,sign];
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            [self.httppost httpPostWithurl:url type:uploadlog];
             
         });
         return;
     }
-    
-    _datasrcmanager = [NSMutableArray arrayWithArray:[[self getAllTopPageLock] mutableCopy]];
-    _datasrcshare = [NSMutableArray array];
-    for (SmartLock *lock in _datasrcmanager)
-    {
-        if ([lock.ismaster isEqualToString:@"0"])
-        {
-            [_datasrcshare addObject:lock];
-        }
-    }
-    for (SmartLock *lock in _datasrcmanager)
-    {
-        if ([lock.ismaster isEqualToString:@"0"])
-        {
-            [_datasrcmanager removeObject:lock];
-        }
-    }
-
-    
-    if([HTTPPost isConnectionAvailable] == YES)
-    {
-        /*********************进行一次心跳同步***********************/
-        NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=synauth&account=%@&apptoken=%@&uuid=%@",[self.userdefaults objectForKey:@"account"],
-                           [self.userdefaults objectForKey:@"appToken"],
-                           [self.userdefaults objectForKey:@"uuid"]];
-        _posttype = synauth;
-        [_httppost httpPostWithurl:urlStr];
-    }
-    
+    NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+    [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
+    NSString *strDate = [dateFormatter stringFromDate:[[NSDate alloc] init]];
+    NSString *url = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=uploadlog&account=%@&apptoken=%@&uuid=%@&globalcode=%@&devcode=%@&authcode=%@&oper_time=%@&oper_status=%li",
+                     [self.userdefaults objectForKey:@"account"],
+                     [self.userdefaults objectForKey:@"appToken"],
+                     [self.userdefaults objectForKey:@"uuid"],
+                     self.selectedlock.globalcode,
+                     [self.selectedlock.uuid substringWithRange:NSMakeRange(68, 32)],
+                     self.selectedlock.authcode,strDate,(long)status];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        [self.httppost httpPostWithurl:url type:uploadlog];
+    });
 }
 
--(void)viewDidAppear:(BOOL)animated
+-(void)addWirelessLogUploadRecord:(NSInteger)status
 {
-    [super viewDidAppear:animated];
-
-    [_mangedLock reloadData];
-    [_sharedLock reloadData];
-    
-    //自动开锁的搜索
-    if ([[_userdefaults objectForKey:@"canautounlock"] intValue] == 1)
+    [self.appDelegate.searchTimer setFireDate:[NSDate distantPast]];
+    if ([self.selectedlock.ismaster isEqualToString:@"0"])
     {
-        _datasrcdata = nil;
-        _datasrcdata = [NSArray arrayWithArray:[self getAllAutoUnlockedLock]];
-        if (_datasrcdata.count==0)
-        {
-            return;
-        }
-        [_userdefaults setInteger:0 forKey:@"canautounlock"];
-        [_userdefaults synchronize];
+        NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+        [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
+        NSString *strDate = [dateFormatter stringFromDate:[[NSDate alloc] init]];
+        NSString *signString = [NSString stringWithFormat:@"account=%@&apptoken=%@&authcode=%@&globalcode=%@&oper_time=%@&uuid=%@&signkey=22jiadfw12e1212jadf9sdafkwezzxwe",
+                                [self.userdefaults objectForKey:@"account"],
+                                [self.userdefaults objectForKey:@"appToken"],
+                                self.selectedlock.authcode,
+                                self.selectedlock.globalcode,
+                                strDate,[self.userdefaults objectForKey:@"uuid"]];
+        NSString *sign = [MD5Code md5:signString];
         
-        _appDelegate.appLibBleLock._delegate = self;
-        _rssi = [[NSMutableArray alloc] init];
-        [_appDelegate.appLibBleLock bleInquiry:2];//2 seconds inruiry
+        NSString *url = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=opencheck&account=%@&apptoken=%@&globalcode=%@&authcode=%@&uuid=%@&oper_time=%@&oper_status=%li&sign=%@",
+                         [self.userdefaults objectForKey:@"account"],
+                         [self.userdefaults objectForKey:@"appToken"],
+                         self.selectedlock.globalcode,
+                         self.selectedlock.authcode,
+                         [self.userdefaults objectForKey:@"uuid"],strDate,(long)status,sign];
         
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            NSMutableArray *wirelesslog = [NSMutableArray arrayWithArray:[self.userdefaults objectForKey:@"wirelesslog"]];
+            [wirelesslog addObject:url];
+            [self.userdefaults setObject:wirelesslog forKey:@"wirelesslog"];
+            [self.userdefaults synchronize];
+        });
+        return;
     }
+    NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+    [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
+    NSString *strDate = [dateFormatter stringFromDate:[[NSDate alloc] init]];
+    NSString *url = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=uploadlog&account=%@&apptoken=%@&uuid=%@&globalcode=%@&devcode=%@&authcode=%@&oper_time=%@&oper_status=%li",
+                     [self.userdefaults objectForKey:@"account"],
+                     [self.userdefaults objectForKey:@"appToken"],
+                     [self.userdefaults objectForKey:@"uuid"],
+                     self.selectedlock.globalcode,
+                     [self.selectedlock.uuid substringWithRange:NSMakeRange(68, 32)],
+                     self.selectedlock.authcode,strDate,(long)status];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    NSMutableArray *wirelesslog = [NSMutableArray arrayWithArray:[self.userdefaults objectForKey:@"wirelesslog"]];
+    [wirelesslog addObject:url];
+    [self.userdefaults setObject:wirelesslog forKey:@"wirelesslog"];
+    [self.userdefaults synchronize];
+    });
 }
+
+-(void)goset
+{
+    UIStoryboard *sb = [UIStoryboard storyboardWithName:@"Main" bundle:nil];
+    UIViewController *next = [sb instantiateViewControllerWithIdentifier:@"mysmartlock"];
+    [self.navigationController pushViewController:next animated:YES];
+}
+
+#pragma mark - bluetooth delegate
 
 -(void)didDiscoverResult:(NSData *)macAddr deviceName:(NSData *)deviceName rssi:(NSNumber *)rssi
 {
-    [_rssi addObject:@{@"key":rssi,@"mac":macAddr}];
+    [self.rssi addObject:@{@"rssi":rssi,@"mac":macAddr}];
 }
 
 -(void)didDiscoverComplete
 {
     //排序
+    NSLog(@"%s",__func__);
+    if (self.rssi.count == 0)
+    {
+        return;
+    }
     NSArray *sortDesc = [NSArray arrayWithObject:[NSSortDescriptor sortDescriptorWithKey:@"key" ascending:YES]];
-    _rssi = (NSMutableArray*)[_rssi sortedArrayUsingDescriptors:sortDesc];
+    self.rssi = [self.rssi sortedArrayUsingDescriptors:sortDesc].mutableCopy;
     //最后一号元素
-    NSData *mac = [NSData dataWithData:[_rssi.lastObject objectForKey:@"mac"]];
-    [self sortlockBymac:[HTTPPost NSDataConversionToNSString:mac]];
+     self.mac = [NSData dataWithData:[self.rssi.lastObject objectForKey:@"mac"]];
+    [self sortlockBymac:[self NSDataConversionToNSString:self.mac]];
     //距离比较
-    if ([self rssiToDistance:[_rssi.lastObject objectForKey:@"key"]] > [_selectedlock.distance floatValue])
+    if ([self rssiToDistance:[self.rssi.lastObject objectForKey:@"rssi"]] > [self.selectedlock.distance floatValue])
     {
         sortDesc = nil;
-        mac = nil;
-        _rssi = nil;
+        self.mac = nil;
+        self.rssi = nil;
         return;
     }
     //匹配管理员
-    if ([_selectedlock.ismaster isEqualToString:@"1"])
+    [self.appDelegate.searchTimer setFireDate:[NSDate distantFuture]];
+    if ([self.selectedlock.ismaster isEqualToString:@"1"])
     {
         //说明搜到的是管理员
         //管理员开锁
         dispatch_async(dispatch_get_main_queue(), ^{
-            _hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
-            _hud.label.text = NSLocalizedString(@"自动开锁中...", @"HUD loading title");
-            [_hud hideAnimated:YES afterDelay:5.0];
+            [self.progressLoadingHud showAnimated:YES];
         });
-        
-            //连接
-        [_appDelegate.appLibBleLock bleConnectRequest:mac forbattery:NO];
+        //连接
+        self.appDelegate.appLibBleLock.delegate = self;
+        [self.appDelegate.appLibBleLock bleConnectRequest:self.mac];
     }else
     {
             //说明是分享者
@@ -192,30 +330,30 @@
             //判定密钥的有效性
             NSDateFormatter * formatter = [[NSDateFormatter alloc] init];
             [formatter setDateFormat: @"yyyyMMddHHmmss"];
-            NSDate *end = [formatter dateFromString:_selectedlock.end_time];
+            NSDate *end = [formatter dateFromString:self.selectedlock.end_time];
             NSTimeInterval interval = [end timeIntervalSinceNow];
-            __weak MyLock *wkSelf = self;
-            
-            if (interval<=0 && [_selectedlock.keytype integerValue]%2 == 0) {
+            if (interval<=0 && [self.selectedlock.keytype integerValue]%2 == 0) {
                 //密钥过期
-                
+                [self.appDelegate.searchTimer setFireDate:[NSDate distantPast]];
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    [wkSelf textExam:@"密钥已过期,自动开锁失败"];
+                    [self progeressText:@"密钥已过期,自动开锁失败"];
                 });
                 
                 return;
             }
-            if([_selectedlock.effectimes integerValue] < 1 && [_selectedlock.keytype integerValue] > 2){
+            if([self.selectedlock.effectimes integerValue] < 1 && [self.selectedlock.keytype integerValue] > 2){
                 //开锁次数为零不能开锁
+                [self.appDelegate.searchTimer setFireDate:[NSDate distantPast]];
                 dispatch_async(dispatch_get_main_queue(), ^{
-                [wkSelf textExam:@"密钥使用次数不足"];
+                    [self progeressText:@"密钥使用次数不足"];
                      });
                 return;
             }
-            if (!_selectedlock.isactive.boolValue)
+            if (!self.selectedlock.isactive.boolValue)
             {
+                [self.appDelegate.searchTimer setFireDate:[NSDate distantPast]];
                 dispatch_async(dispatch_get_main_queue(), ^{
-                [wkSelf textExam:@"您已解除该密钥的使用权限"];
+                    [self progeressText:@"您已解除该密钥的使用权限"];
                      });
                 return;
 
@@ -223,269 +361,246 @@
             //连接
         
         dispatch_async(dispatch_get_main_queue(), ^{
-            _hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
-            _hud.label.text = NSLocalizedString(@"自动开锁中...", @"HUD loading title");
-            [_hud hideAnimated:YES afterDelay:5.0];
+            [self.progressLoadingHud showAnimated:YES];
         });
-        
-            [_appDelegate.appLibBleLock bleConnectRequest:mac forbattery:NO];
-        
+            self.appDelegate.appLibBleLock.delegate = self;
+            [self.appDelegate.appLibBleLock bleConnectRequest:self.mac];
     }
 }
-
--(void)check:(NSTimer*)timer
-{
-    NSData *guid = [self NSStringConversionToNSData:_selectedlock.globalcode];
-    [_appDelegate.appLibBleLock bleDataSendRequest:timer.userInfo cmd_type:libBleCmdBindManager param_data:guid];
-}
-
--(void)communicate:(NSTimer*)timer
-{
-    
-    if ([_selectedlock.ismaster isEqualToString:@"1"])
-    {
-        NSMutableData *uuid_c = [[NSMutableData alloc]initWithData:[self NSStringConversionToNSData:_selectedlock.uuid]];
-        [_appDelegate.appLibBleLock bleDataSendRequest:timer.userInfo cmd_type:libBleCmdSendManagerCommunicateUUID param_data:uuid_c];
-        _timer = [NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(manageropenlock:) userInfo:timer.userInfo repeats:NO];
-    }else{
-        NSMutableData *uuid_d = [[NSMutableData alloc]initWithData:[self NSStringConversionToNSData:_selectedlock.uuid]];
-        NSData *uuid_e = [self NSStringConversionToNSData:_selectedlock.comucode];
-        [uuid_d appendData:uuid_e];
-        [_appDelegate.appLibBleLock bleDataSendRequest:timer.userInfo cmd_type:libBleCmdSendSharerCommunicateUUID param_data:uuid_d];
-    }
-}
-
--(void)manageropenlock:(NSTimer*)timer
-{
-    NSMutableData *uuid_c = [[NSMutableData alloc]initWithData:[self NSStringConversionToNSData:_selectedlock.uuid]];
-    NSData *uuid_d = [self NSStringConversionToNSData:_selectedlock.authcode];
-    [uuid_c appendData:uuid_d];
-    [uuid_c appendData:[self getCurrentTimeInterval]];
-    [_appDelegate.appLibBleLock bleDataSendRequest:timer.userInfo cmd_type:libBleCmdSendManagerOpenLockUUID param_data:uuid_c];
-}
-
--(void)shareopenlock:(NSTimer*)timer
-{
-    
-    NSMutableData *uuid_d = [[NSMutableData alloc]initWithData:[self NSStringConversionToNSData:_selectedlock.uuid]];
-    NSLog(@"%@",_selectedlock.uuid);
-    NSLog(@"%@",_selectedlock.authcode);
-    NSLog(@"%@",_selectedlock.comucode);
-    NSData *uuid_e = [self NSStringConversionToNSData:_selectedlock.comucode];
-    NSData *uuid_f = [self NSStringConversionToNSData:_selectedlock.authcode];
-    [uuid_d appendData:uuid_e];
-    [uuid_d appendData:uuid_f];
-    [uuid_d appendData:[self getCurrentTimeInterval]];
-    [_appDelegate.appLibBleLock bleDataSendRequest:timer.userInfo cmd_type:libBleCmdSendSharerOpenLockUUID param_data:uuid_d];
-}
-
-
-
-/********************************************************
- *蓝牙回调函数实现
- */
 
 -(void)didConnectConfirm:(NSData *)macAddr status:(Boolean)status{
     if (status)
     {
-        if ([_selectedlock.ismaster isEqualToString:@"1"]) {
-            _timer = [NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(check:) userInfo:macAddr repeats:NO];
+        if ([self.selectedlock.ismaster isEqualToString:@"1"])
+        {
+            [self performSelector:@selector(check) withObject:nil afterDelay:0.2];
         }else{
-            _timer = [NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(communicate:) userInfo:macAddr repeats:NO];
+            [self performSelector:@selector(communicate) withObject:nil afterDelay:0.2];
         }
         return;
     }
-    _hud.label.text = NSLocalizedString(@"连接失败", @"HUD loading title");
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.progressLoadingHud hideAnimated:YES];
+        self.progressLoadingHud = nil;
+        [self progeressText:@"连接失败"];
+    });
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        if ([HTTPPost isConnectionAvailable] == NO)
+        {
+            [self addWirelessLogUploadRecord:31];
+        }else
+        {
+            [self uploadlog:31];
+        }
+    });
+    
 }
 
--(void)didDisconnectIndication:(NSData *)macAddr{}
-
--(void)didDataSendResponse:(NSData *)macAddr cmd_type:(libCommandType)cmd_type result:(libBleErrorCode)result param_data:(NSData *)param_data{
-    switch (cmd_type) {
-        case libBleCmdBindManager:{
-            NSData *uuid = [self NSStringConversionToNSData:[_userdefaults objectForKey:@"uuid"]];
-            NSData *scrB = [self NSStringConversionToNSData:[_userdefaults objectForKey:@"appToken"]];
-            NSMutableData *user = [[NSMutableData alloc] initWithData:uuid];
-            [user appendData:scrB];
-            if ([param_data isEqualToData:user]) {
-                _timer = [NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(communicate:) userInfo:macAddr repeats:NO];
-            }
-        }break;
-        case libBleCmdSendSharerCommunicateUUID:{
-            if (!result) {
-                _timer = [NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(shareopenlock:) userInfo:macAddr repeats:NO];
-            }
-        }break;
-        case libBleCmdSendManagerOpenLockUUID:
-        {
-            if (!result)
+-(void)didDataSendResponse:(NSData *)macAddr cmd_type:(libCommandType)cmd_type result:(libBleErrorCode)result param_data:(NSData *)param_data
+{
+    if (result != libBleErrorCodeNone)
+    {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.progressLoadingHud hideAnimated:YES];
+            self.progressLoadingHud = nil;
+            [self progeressText:@"开锁失败"];
+        });
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            if ([HTTPPost isConnectionAvailable] == NO)
             {
-                [_hud hideAnimated:YES];
-                [self textExam:@"开锁完成！"];
-    
-                //断开蓝牙
-                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                    _rssi = nil;
-                    [_appDelegate.appLibBleLock bleDisconnectRequest:macAddr];
+                [self addWirelessLogUploadRecord:51];
+            }else
+            {
+                [self uploadlog:51];
+            }
+        });
+        dispatch_time_t timedelay = dispatch_time(DISPATCH_TIME_NOW, 0.2 * NSEC_PER_SEC);
+        dispatch_after(timedelay, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            self.appDelegate.appLibBleLock.delegate = self;
+            [self.appDelegate.appLibBleLock bleDisconnectRequest:macAddr];
+        });
+        return;
+    }
+    switch (cmd_type) {
+        case libBleCmdBindManager:
+        {
+            NSData *user = [NSData dataWithData:[self NSStringConversionToNSData:[self.selectedlock.uuid substringWithRange:NSMakeRange(20, 48)]]];
+            if ([param_data isEqualToData:user])
+            {
+                [self performSelector:@selector(communicate) withObject:nil afterDelay:0.2];
+            }else
+            {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self.progressLoadingHud hideAnimated:YES];
+                    self.progressLoadingHud = nil;
+                    [self progeressText:@"开锁失败"];
                 });
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                     if ([HTTPPost isConnectionAvailable] == NO)
                     {
-                        NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-                        [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
-                        NSString *strDate = [dateFormatter stringFromDate:[[NSDate alloc] init]];
-                        NSString *url = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=uploadlog&account=%@&apptoken=%@&uuid=%@&globalcode=%@&devcode=%@&authcode=%@&oper_time=%@&oper_status=5",
-                                         [_userdefaults objectForKey:@"account"],
-                                         [_userdefaults objectForKey:@"appToken"],
-                                         [_userdefaults objectForKey:@"uuid"],
-                                         _selectedlock.globalcode,
-                                         [_selectedlock.uuid substringWithRange:NSMakeRange(68, 32)],
-                                         _selectedlock.authcode,strDate];
-                        NSMutableArray *wirelesslog = [NSMutableArray arrayWithArray:[_userdefaults objectForKey:@"wirelesslog"]];
-                        [wirelesslog addObject:url];
-                        [_userdefaults setObject:wirelesslog forKey:@"wirelesslog"];
-                        [_userdefaults synchronize];
-                        wirelesslog = nil;
+                        [self addWirelessLogUploadRecord:4];
                     }else
                     {
-                        //上传日志
-                        NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-                        [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
-                        NSString *strDate = [dateFormatter stringFromDate:[[NSDate alloc] init]];
-                        NSString *url = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=uploadlog&account=%@&apptoken=%@&uuid=%@&globalcode=%@&devcode=%@&authcode=%@&oper_time=%@&oper_status=5",
-                                         [_userdefaults objectForKey:@"account"],
-                                         [_userdefaults objectForKey:@"appToken"],
-                                         [_userdefaults objectForKey:@"uuid"],
-                                         _selectedlock.globalcode,
-                                         [_selectedlock.uuid substringWithRange:NSMakeRange(68, 32)],
-                                         _selectedlock.authcode,strDate];
-                        [_httppost httpPostWithurl:url];
-                        _posttype = uploadlog;
+                        [self uploadlog:4];
                     }
-
                 });
-            }else{
-                [_hud hideAnimated:YES];
-                [self textExam:@"开锁失败！"];
-                
-                //断开蓝牙
-                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                    _rssi = nil;
-                    [_appDelegate.appLibBleLock bleDisconnectRequest:macAddr];
+                dispatch_time_t timedelay = dispatch_time(DISPATCH_TIME_NOW, 0.2 * NSEC_PER_SEC);
+                dispatch_after(timedelay, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                    self.appDelegate.appLibBleLock.delegate = self;
+                    [self.appDelegate.appLibBleLock bleDisconnectRequest:macAddr];
                 });
-
+                return;
             }
         }break;
-        
-        case libBleCmdSendSharerOpenLockUUID:{
-            if (!result) {
-                [_hud hideAnimated:YES];
-                [self textExam:@"开锁完成！"];
-                
+        case libBleCmdSendSharerCommunicateUUID:
+        {
+            [self performSelector:@selector(shareopenlock) withObject:nil afterDelay:0.2];
+            
+        }break;
+            
+        case libBleCmdSendManagerOpenLockUUID:
+        {
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                    [self.progressLoadingHud hideAnimated:YES];
+                    self.progressLoadingHud = nil;
+                    [self progeressText:@"开锁完成"];
+                });
                 //断开蓝牙
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                    _rssi = nil;
-                    [_appDelegate.appLibBleLock bleDisconnectRequest:macAddr];
+                    self.rssi = nil;
+                    self.appDelegate.appLibBleLock.delegate = self;
+                    [self.appDelegate.appLibBleLock bleDisconnectRequest:macAddr];
                 });
-
+                
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                if ([HTTPPost isConnectionAvailable] == NO)
-                {
-                    NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-                    [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
-                    NSString *strDate = [dateFormatter stringFromDate:[[NSDate alloc] init]];
-                    NSString *url = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=uploadlog&account=%@&apptoken=%@&uuid=%@&globalcode=%@&devcode=%@&authcode=%@&oper_time=%@&oper_status=5",
-                                     [_userdefaults objectForKey:@"account"],
-                                     [_userdefaults objectForKey:@"appToken"],
-                                     [_userdefaults objectForKey:@"uuid"],
-                                     _selectedlock.globalcode,
-                                     [_selectedlock.uuid substringWithRange:NSMakeRange(68, 32)],
-                                     _selectedlock.authcode,strDate];
-                    NSMutableArray *wirelesslog = [NSMutableArray arrayWithArray:[_userdefaults objectForKey:@"wirelesslog"]];
-                    [wirelesslog addObject:url];
-                    [_userdefaults setObject:wirelesslog forKey:@"wirelesslog"];
-                    [_userdefaults synchronize];
-                    wirelesslog = nil;
-                }else
-                {
-                    NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-                    [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
-                    NSString *strDate = [dateFormatter stringFromDate:[[NSDate alloc] init]];
-                    NSString *url = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=uploadlog&account=%@&apptoken=%@&uuid=%@&globalcode=%@&devcode=%@&authcode=%@&oper_time=%@&oper_status=5",
-                                     [_userdefaults objectForKey:@"account"],
-                                     [_userdefaults objectForKey:@"appToken"],
-                                     [_userdefaults objectForKey:@"uuid"],
-                                     _selectedlock.globalcode,
-                                     [_selectedlock.uuid substringWithRange:NSMakeRange(68, 32)],
-                                     _selectedlock.authcode,strDate];
-                    [_httppost httpPostWithurl:url];
-                    _posttype = uploadlog;
-                }
+                    if ([HTTPPost isConnectionAvailable] == NO)
+                    {
+                        [self addWirelessLogUploadRecord:5];
+                    }else
+                    {
+                        [self uploadlog:5];
+                    }
                 });
+            
+        }break;
+            
+        case libBleCmdSendSharerOpenLockUUID:
+        {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self.progressLoadingHud hideAnimated:YES];
+                    self.progressLoadingHud = nil;
+                    [self progeressText:@"开锁完成"];
+                });
+                //断开蓝牙
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                    self.rssi = nil;
+                    self.appDelegate.appLibBleLock.delegate = self;
+                    [self.appDelegate.appLibBleLock bleDisconnectRequest:macAddr];
+                });
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                    if ([HTTPPost isConnectionAvailable] == NO)
+                    {
+                        [self addWirelessLogUploadRecord:5];
+                    }else
+                    {
+                        [self uploadlog:5];
+                    }
+                });
+                
                 //修改本地数据
-                [self updateLockMsg:_selectedlock.globalcode withupdate:^(SmartLock *lock) {
-                    lock.effectimes = [NSString stringWithFormat:@"%li",(long)lock.effectimes.integerValue-1];
+                [self updateLockMsg:self.selectedlock.devuserid withupdate:^(SmartLock *lock) {
+                    NSInteger usedtimes = [[lock usedtimes] integerValue];
+                    lock.usedtimes = [NSString stringWithFormat:@"%li",(long)usedtimes + 1];
                 }];
-                
-                
-            }else{
-                [_hud hideAnimated:YES];
-                [self textExam:@"开锁失败！"];
-                
-                //断开蓝牙
-                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                    _rssi = nil;
-                    [_appDelegate.appLibBleLock bleDisconnectRequest:macAddr];
-                });
-            }
         }break;
-
+            
             
         default:
             break;
     }
 }
 
-- (void)didReceiveMemoryWarning {
-    [super didReceiveMemoryWarning];
-}
+#pragma mark - bluetooth private methord
 
-//去到下一页
--(void)goset
+-(void)check
 {
-    [_userdefaults setBool:NO forKey:@"sync"];
-    [_userdefaults synchronize];
-    
-    UIStoryboard *sb = [UIStoryboard storyboardWithName:@"Main" bundle:nil];
-    UIViewController *next = [sb instantiateViewControllerWithIdentifier:@"mysmartlock"];
-    [self.navigationController pushViewController:next animated:YES];
+    NSData *guid = [self NSStringConversionToNSData:self.selectedlock.globalcode];
+    self.appDelegate.appLibBleLock.delegate = self;
+    [self.appDelegate.appLibBleLock bleDataSendRequest:self.mac cmd_type:libBleCmdBindManager param_data:guid];
 }
 
-/****************集合视图基本代理*****************/
--(NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section{
+-(void)communicate
+{
+    if ([self.selectedlock.ismaster isEqualToString:@"1"])
+    {
+        NSMutableData *uuid_c = [[NSMutableData alloc]initWithData:[self NSStringConversionToNSData:self.selectedlock.uuid]];
+        self.appDelegate.appLibBleLock.delegate = self;
+        [self.appDelegate.appLibBleLock bleDataSendRequest:self.mac cmd_type:libBleCmdSendManagerCommunicateUUID param_data:uuid_c];
+        [self performSelector:@selector(manageropenlock) withObject:nil afterDelay:0.2];
+    }else
+    {
+        NSMutableData *uuid_d = [[NSMutableData alloc]initWithData:[self NSStringConversionToNSData:self.selectedlock.uuid]];
+        NSData *uuid_e = [self NSStringConversionToNSData:self.selectedlock.comucode];
+        [uuid_d appendData:uuid_e];
+        self.appDelegate.appLibBleLock.delegate = self;
+        [self.appDelegate.appLibBleLock bleDataSendRequest:self.mac cmd_type:libBleCmdSendSharerCommunicateUUID param_data:uuid_d];
+    }
+}
 
-    
+-(void)manageropenlock
+{
+    NSMutableData *uuid_c = [[NSMutableData alloc]initWithData:[self NSStringConversionToNSData:self.selectedlock.uuid]];
+    NSData *uuid_d = [self NSStringConversionToNSData:self.selectedlock.authcode];
+    [uuid_c appendData:uuid_d];
+    [uuid_c appendData:[self getCurrentTimeInterval]];
+    self.appDelegate.appLibBleLock.delegate = self;
+    [self.appDelegate.appLibBleLock bleDataSendRequest:self.mac cmd_type:libBleCmdSendManagerOpenLockUUID param_data:uuid_c];
+}
+
+-(void)shareopenlock
+{
+    NSMutableData *uuid_d = [[NSMutableData alloc]initWithData:[self NSStringConversionToNSData:self.selectedlock.uuid]];
+    NSData *uuid_e = [self NSStringConversionToNSData:self.selectedlock.comucode];
+    NSData *uuid_f = [self NSStringConversionToNSData:self.selectedlock.authcode];
+    [uuid_d appendData:uuid_e];
+    [uuid_d appendData:uuid_f];
+    [uuid_d appendData:[self getCurrentTimeInterval]];
+    self.appDelegate.appLibBleLock.delegate = self;
+    [self.appDelegate.appLibBleLock bleDataSendRequest:self.mac cmd_type:libBleCmdSendSharerOpenLockUUID param_data:uuid_d];
+}
+
+#pragma mark - collection delegate
+
+-(NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section
+{
     if (collectionView.tag == 1)
     {
-        return _datasrcmanager.count;
+        return self.datasrcmanager.count;
     }
-    return _datasrcshare.count;
+    return self.datasrcshare.count;
 }
 
-/****************集合视图数据代理*****************/
 -(UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    UICollectionViewCell *cell = [[UICollectionViewCell alloc] init];
-    if (collectionView.tag == 1) {
-        MyCell *cell0 = (MyCell *)[_mangedLock dequeueReusableCellWithReuseIdentifier:@"managecell" forIndexPath:indexPath];
-        cell0.lab.text = [_datasrcmanager[indexPath.row] devname];
-        cell = cell0;
-    }else if (collectionView.tag == 2){
-        MyCell *cell0 = (MyCell *)[_sharedLock dequeueReusableCellWithReuseIdentifier:@"sharedcell" forIndexPath:indexPath];
-        cell0.labShared.text = [_datasrcshare[indexPath.row] devname];
-        cell = cell0;
+    static NSString *cellID = @"CollectionViewCell";
+    CollectionViewCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:cellID forIndexPath:indexPath];
+    if (!cell) {
+        [collectionView registerNib:[UINib nibWithNibName:@"CollectionViewCell" bundle:nil] forCellWithReuseIdentifier:cellID];
+        cell = [collectionView dequeueReusableCellWithReuseIdentifier:cellID forIndexPath:indexPath];
     }
-        return cell;
+    UILabel *label = [cell viewWithTag:1];
+    UIImageView *imgv = [cell viewWithTag:2];
+    if (collectionView.tag == 1)
+    {
+        label.text = [self.datasrcmanager[indexPath.row] devname];
+        [imgv setImage:[UIImage imageNamed:@"unlock"]];
+    }else
+    {
+        label.text = [self.datasrcshare[indexPath.row] devname];
+        [imgv setImage:[UIImage imageNamed:@"key"]];
+    }
+    return cell;
 }
 
 -(void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)indexPath
@@ -499,15 +614,14 @@
     }
 }
 
-//网络请求回调
--(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval
+#pragma mark - network delegate
+
+-(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval type:(httpPostType)type
 {
-    if ( -120 > interval || interval > 120 )
+    if ( -120 > interval || interval > 120)
     {
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"警告" message:@"系统时间错误" preferredStyle:1];
         [alert addAction:[UIAlertAction actionWithTitle:@"去更正时间" style:0 handler:^(UIAlertAction * _Nonnull action) {
-            [_timer invalidate];
-            _timer = nil;
             NSURL * url = [NSURL URLWithString:UIApplicationOpenSettingsURLString];
             if([[UIApplication sharedApplication] canOpenURL:url]) {
                 
@@ -520,87 +634,86 @@
         });
         return;
     }
-    switch (_posttype)
+    switch (type)
     {
         case synauth:
         {
-            if ([[dic objectForKey:@"status"] integerValue] != 1) {
+            if ([[dic objectForKey:@"status"] isEqualToString:@"-3"])
+            {
+                [self clearAllData];
+                [self loadTopPageData];
                 return;
             }
-            NSArray <NSDictionary *> *data = [NSArray arrayWithArray:[dic objectForKey:@"data"]];
-            if (data.count == 0) {
+            if ([[dic objectForKey:@"status"] integerValue] != 1)
+            {
+                [self loadTopPageData];
                 return;
             }
             //同步到本地
             [self.userdefaults setObject:[dic objectForKey:@"money"] forKey:@"money"];
             [self.userdefaults setObject:[dic objectForKey:@"minutes"] forKey:@"minutes"];
+            [self.userdefaults setObject:[dic objectForKey:@"usedminutes"] forKey:@"usedminutes"];
             [self.userdefaults setObject:[dic objectForKey:@"flows"] forKey:@"flows"];
+            [self.userdefaults synchronize];
+            NSMutableArray <NSDictionary *> *data = [NSMutableArray arrayWithArray:[dic objectForKey:@"data"]];
+            NSMutableArray *deviuseridTemp = [NSMutableArray array];
             for (NSDictionary *lock in data)
             {
-                //删除
-                //[self removeUselessLock:data];
-                
-                if ([self isNewLock:[[lock objectForKey:@"globalcode"] lowercaseString]])
+                [deviuseridTemp addObject:[lock objectForKey:@"devuserid"]];
+                if ([self isNewLockWithDevuserid:[lock objectForKey:@"devuserid"]])
                 {
                     //insert
                     [self insertLock:^(SmartLock *device) {
                         device.devuserid = [lock objectForKey:@"devuserid"];
-                        device.globalcode = [[lock objectForKey:@"globalcode"] lowercaseString];
+                        device.globalcode = [lock objectForKey:@"globalcode"] ;
                         device.uuid = [lock objectForKey:@"uuid"];
                         device.authcode = [lock objectForKey:@"authcode"];
                         device.comucode = [lock objectForKey:@"comucode"];
                         device.devname = [lock objectForKey:@"devname"];
-                        device.managename = [lock objectForKey:@"managename "];
+                        device.managename = [lock objectForKey:@"managename"];
                         device.ismaster = [lock objectForKey:@"ismaster"];
                         device.keytype = [lock objectForKey:@"keytype"];
                         device.effectimes = [lock objectForKey:@"effectimes"];
                         device.begin_time = [lock objectForKey:@"begin_time"];
                         device.end_time = [lock objectForKey:@"end_time"];
-                        
-                        device.productdate = @"获取失败";
-                        device.warrantydate = @"获取失败";
+                        device.status = [lock objectForKey:@"status"];
+                        device.sharetimes = [lock objectForKey:@"sharetimes"];
+                        device.usedtimes = [lock objectForKey:@"usedtimes"];
+                        device.productdate = @"2016-05-01";
+                        device.warrantydate = @"2021-05-01";
                         device.sharenum = @"0";
-                        device.maxshare = @"15";
+                        device.maxshare = @"50";
                         device.distance = @"0.0";
-                        device.battery = @"0";
+                        device.battery = @"100";
                         device.isactive = [NSNumber numberWithBool:NO];
                         device.istoppage = [NSNumber numberWithBool:NO];
                         device.isautounlock = [NSNumber numberWithBool:NO];
                         device.oper_time = [[NSDate alloc] init];
                         device.isdeleted = @"nodeleted";
-                    
                     }];
                 }else
                 {
                     //update
-                    [self updateLockMsg:[[lock objectForKey:@"globalcode"] lowercaseString] withupdate:^(SmartLock *device) {
-                        device.devuserid = [lock objectForKey:@"devuserid"];
-                        device.globalcode = [[lock objectForKey:@"globalcode"] lowercaseString];
-                        device.uuid = [lock objectForKey:@"uuid"];
+                    [self updateLockMsg:[lock objectForKey:@"devuserid"] withupdate:^(SmartLock *device) {
+                        device.managename = [lock objectForKey:@"managename"];
+                        device.devname = [lock objectForKey:@"devname"];
+                        device.effectimes = [lock objectForKey:@"effectimes"];
+                        device.usedtimes = [lock objectForKey:@"usedtimes"];
+                        device.status = [lock objectForKey:@"status"];
                         device.authcode = [lock objectForKey:@"authcode"];
                         device.comucode = [lock objectForKey:@"comucode"];
-                        device.devname = [lock objectForKey:@"devname"];
-                        device.managename = [lock objectForKey:@"managename "];
-                        device.ismaster = [lock objectForKey:@"ismaster"];
-                        device.keytype = [lock objectForKey:@"keytype"];
-                        device.effectimes = [lock objectForKey:@"effectimes"];
-                        device.begin_time = [lock objectForKey:@"begin_time"];
-                        device.end_time = [lock objectForKey:@"end_time"];
                     }];
                 }
             }
-            
-            if([[_userdefaults objectForKey:@"wirelesslog"] count] > 0)
+            //删除无用的锁
+            [self removeUselessLock:deviuseridTemp];
+            [self loadTopPageData];
+            if([[self.userdefaults objectForKey:@"wirelesslog"] count] > 0)
             {
-
-                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
-                               {
-                                    //上传日志
-                                   _wirelesslog = [NSMutableArray arrayWithArray:[_userdefaults objectForKey:@"wirelesslog"]];
-                                   _posttype = uploadlog;
-                                   [_httppost httpPostWithurl:[_wirelesslog firstObject]];
-                
-                               });
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                    self.wirelesslog = [NSMutableArray arrayWithArray:[self.userdefaults objectForKey:@"wirelesslog"]];
+                    [self.httppost httpPostWithurl:[self.wirelesslog firstObject] type:uploadlog];
+                });
             }
         }
             
@@ -608,24 +721,27 @@
           
         case uploadlog:
         {
-        
-            if ([[dic objectForKey:@"status"] integerValue] == 1)
+            if (self.wirelesslog.count == 0) {
+                return;
+            }
+            if ([[dic objectForKey:@"status"] isEqualToString:@"1"] || [[dic objectForKey:@"status"] isEqualToString:@"-4"] || [[dic objectForKey:@"status"] isEqualToString:@"-5"])
             {
-                [_wirelesslog removeObjectAtIndex:0];
-                
-                if (_wirelesslog.count == 0)
+                if (self.wirelesslog.count>0)
                 {
-                    [_userdefaults setObject:[NSArray array] forKey:@"wirelesslog"];
-                    [_userdefaults synchronize];
+                    [self.wirelesslog removeObjectAtIndex:0];
+                }
+                if (self.wirelesslog.count == 0)
+                {
+                    [self synauthdate];
+                    [self.userdefaults setObject:[NSArray array] forKey:@"wirelesslog"];
+                    [self.userdefaults synchronize];
                     return;
                 }
-                _posttype = uploadlog;
-                [_httppost httpPostWithurl:[_wirelesslog firstObject]];
+                [self.httppost httpPostWithurl:[self.wirelesslog firstObject] type:uploadlog];
                 
             }else
             {
-                _posttype = uploadlog;
-                [_httppost httpPostWithurl:[_wirelesslog firstObject]];
+                [self.httppost httpPostWithurl:[self.wirelesslog firstObject] type:uploadlog];
             }
         }
             break;
@@ -634,116 +750,18 @@
     }
 }
 
--(BOOL)isNewLock:(NSString*)globalcode
+#pragma mark - other methord
+
+- (void)progeressText:(NSString*)text
 {
-    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
-    NSFetchRequest *request = [[NSFetchRequest alloc] init];
-    [request setEntity:entity];
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"globalcode=%@",globalcode];
-    [request setPredicate:predicate];
-    NSArray *resultArr = [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext executeFetchRequest:request error:nil];
-    if (resultArr.count>0) {
-        return NO;
-    }
-    return YES;
+    SHOWALERTNOTIFY(text)
+    MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
+    hud.mode = MBProgressHUDModeText;
+    hud.label.text = NSLocalizedString(text, @"");
+    hud.offset = CGPointMake(0.f, 0.f);
+    [hud hideAnimated:YES afterDelay:2.f];
 }
 
--(void)insertLock:(void(^)(SmartLock *device))addlock
-{
-    SmartLock *lock = [NSEntityDescription insertNewObjectForEntityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
-    addlock(lock);
-    [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext save:nil];
-}
-
--(void)updateLockMsg:(NSString*)globalcode withupdate:(void(^)(SmartLock *lock))update
-{
-    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
-    NSFetchRequest *request = [[NSFetchRequest alloc] init];
-    [request setEntity:entity];
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"globalcode=%@",globalcode];
-    [request setPredicate:predicate];
-    SmartLock *lock = [[((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext executeFetchRequest:request error:nil] lastObject];
-    if (lock)
-    {
-        update(lock);
-        [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext save:nil];
-    }
-}
-
--(NSData *) NSStringConversionToNSData:(NSString*)string
-{
-    if (string == nil)
-        return nil;
-    const char *ch = [string cStringUsingEncoding:NSUTF8StringEncoding];
-    NSMutableData *data = [NSMutableData data];
-    while (*ch) {
-        char byte = 0;
-        if ('0' <= *ch && *ch <= '9')
-            byte = *ch - '0';
-        else if ('a' <= *ch && *ch <= 'f')
-            byte = *ch - 'a' + 10;
-        else if ('A' <= *ch && *ch <= 'F')
-            byte = *ch - 'A' + 10;
-        else
-            return nil;
-        ch++;
-        byte = byte << 4;
-        if (*ch) {
-            if ('0' <= *ch && *ch <= '9')
-                byte += *ch - '0';
-            else if ('a' <= *ch && *ch <= 'f')
-                byte += *ch - 'a' + 10;
-            else if ('A' <= *ch && *ch <= 'F')
-                byte += *ch - 'A' + 10;
-            else
-                return nil;
-            ch++;
-        }
-        [data appendBytes:&byte length:1];
-    }
-    return data;
-}
-
--(NSData *) getCurrentTimeInterval
-{
-    NSData *dataCurrentTimeInterval;
-    long dateInterval = [[NSDate date] timeIntervalSince1970];
-    Byte byteDateInterval[4];
-    for (NSUInteger index = 0; index < sizeof(byteDateInterval); index++)
-    {
-        byteDateInterval[index] = (dateInterval >> ((3 - index) * 8)) & 0xFF;
-    }
-    dataCurrentTimeInterval = [[NSData alloc] initWithBytes:byteDateInterval length:sizeof(byteDateInterval)];
-    return dataCurrentTimeInterval;
-}
-
-- (BOOL)matestring:(NSString*)string :(NSArray*)arr
-{
-    NSInteger count = 0;
-    for (NSInteger i = 0 ; i < arr.count; i++ ) {
-        if ([arr[i] isEqualToString:string] ) {
-            count++;
-        }
-    }
-    return count;
-}
-
-//提示框显示
-- (void)textExam:(NSString*)text
-{
-    dispatch_async(dispatch_get_main_queue(), ^{
-        MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
-        
-        // Set the annular determinate mode to show task progress.
-        hud.mode = MBProgressHUDModeText;
-        hud.label.text = NSLocalizedString(text, @"titles");
-        hud.offset = CGPointMake(0.f, 10.f);
-        [hud hideAnimated:YES afterDelay:2.f];
-    });
-}
-
-
-//根据信号估算距离
 -(CGFloat) rssiToDistance:(NSNumber *)RSSI
 {
     int rssi = abs([RSSI intValue]);
@@ -752,87 +770,17 @@
     return pow(10, ci);
 }
 
--(void)removeUselessLock:(NSArray<NSDictionary*>*)data
-{
-    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
-    NSFetchRequest *request = [[NSFetchRequest alloc] init];
-    [request setEntity:entity];
-    NSMutableArray <SmartLock*>* locks = [[((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext executeFetchRequest:request error:nil] mutableCopy];
-    for (SmartLock *lock in locks)
-    {
-        if ([self isValidateGlobalcode:lock.globalcode indata:data])
-        {
-            [locks removeObject:lock];
-        }
-    }
-    for (SmartLock *lock in locks)
-    {
-        [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext deleteObject:lock];
-    }
-    [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext save:nil];
-}
-
--(BOOL)isValidateGlobalcode:(NSString*)globalcode indata:(NSArray<NSDictionary *>*)data
-{
-    for (NSDictionary *lock in data)
-    {
-        if ([globalcode isEqualToString:[lock objectForKey:@"globalcode"]])
-        {
-            return YES;
-        }
-    }
-    return NO;
-}
-
--(NSArray<SmartLock*>*)getAllAutoUnlockedLock
-{
-    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
-    NSFetchRequest *request = [[NSFetchRequest alloc] init];
-    [request setEntity:entity];
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"isautounlock=%@",[NSNumber numberWithBool:YES]];
-    [request setPredicate:predicate];
-    NSMutableArray <SmartLock*>*arr = [[((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext executeFetchRequest:request error:nil] mutableCopy];
-    for (SmartLock* lock in arr)
-    {
-        if ([lock.begin_time isEqualToString:lock.isdeleted])
-        {
-            [arr removeObject:lock];
-        }
-    }
-    return arr;
-}
-
--(NSArray<SmartLock*>*)getAllTopPageLock
-{
-    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
-    NSFetchRequest *request = [[NSFetchRequest alloc] init];
-    [request setEntity:entity];
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"istoppage=%@",[NSNumber numberWithBool:YES]];
-    [request setPredicate:predicate];
-    NSMutableArray <SmartLock*>*arr = [[((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext executeFetchRequest:request error:nil] mutableCopy];
-    for (SmartLock* lock in arr)
-    {
-        if ([lock.begin_time isEqualToString:lock.isdeleted])
-        {
-            [arr removeObject:lock];
-        }
-    }
-    return arr;
-}
-
 -(BOOL)sortlockBymac:(NSString*)mac
 {
-    for (SmartLock *lock in _datasrcdata)
+    for (SmartLock *lock in self.datasrcdata)
     {
         if ([[lock.globalcode.lowercaseString.mutableCopy substringWithRange:NSMakeRange(0, 12)] isEqualToString:mac])
         {
-            _selectedlock = lock;
+            self.selectedlock = lock;
             return YES;
         }
     }
     return NO;
 }
-
-
 
 @end

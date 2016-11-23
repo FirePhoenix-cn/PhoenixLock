@@ -6,9 +6,9 @@
 //  Copyright © 2016年 jinou. All rights reserved.
 //
 
-#import <UIKit/UIKit.h>
+#import "ModelViewController.h"
 
-@interface Paper : UIViewController
+@interface Paper : ModelViewController
 
 @property(strong, nonatomic) HTTPPost *httppost;
 

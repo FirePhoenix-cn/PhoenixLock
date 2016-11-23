@@ -248,11 +248,9 @@
     
     AVCaptureDevice *device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
     NSError *error = nil;
-    AVCaptureDeviceInput *input = [AVCaptureDeviceInput deviceInputWithDevice:device error:&error];
+    [AVCaptureDeviceInput deviceInputWithDevice:device error:&error];
     if (error)
     {
-        
-        input = nil;
         [self.navigationController popViewControllerAnimated:YES];
         return;
     }
@@ -265,7 +263,9 @@
     [super viewDidAppear:animated];
 }
 
-- (void)viewWillDisappear:(BOOL)animated {
+- (void)viewWillDisappear:(BOOL)animated
+{
+    [super viewWillDisappear:animated];
     self.navigationController.navigationBar.hidden = NO;
 }
 

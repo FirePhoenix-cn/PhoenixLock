@@ -18,8 +18,7 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.title = @"系统设置";
-    _appdelegete = (AppDelegate*)[[UIApplication sharedApplication] delegate];
+    self.appdelegete = (AppDelegate*)[[UIApplication sharedApplication] delegate];
 }
 
 - (void)didReceiveMemoryWarning
@@ -30,12 +29,14 @@
 - (IBAction)quit:(UIButton *)sender
 {
     [self.userdefault setBool:YES forKey:@"quitapp"];
-    
+    [self.appdelegete.searchTimer invalidate];
+    self.appdelegete.searchTimer = nil;
     dispatch_async(dispatch_get_main_queue(), ^{
        
         UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"Login" bundle:nil];
         UIViewController *next = (UIViewController*)[storyboard instantiateViewControllerWithIdentifier:@"loginpage"];
-        [self.navigationController pushViewController:next animated:YES];
+        [self.tabBarController.viewControllers[0] pushViewController:next animated:YES];
+        self.tabBarController.selectedIndex = 0;
     });
 }
 

@@ -9,7 +9,7 @@
 #import "LockViewController.h"
 
 @interface LockViewController ()
-
+@property (strong,nonatomic) UISwipeGestureRecognizer *rightSwipe;
 @end
 
 @implementation LockViewController
@@ -17,19 +17,19 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    
     UIColor * color = [UIColor whiteColor];
     NSDictionary * dict = [NSDictionary dictionaryWithObject:color forKey:NSForegroundColorAttributeName];
     self.navigationController.navigationBar.titleTextAttributes = dict;//标题颜色
     self.navigationController.navigationBar.tintColor = [UIColor whiteColor];//按钮颜色
     self.navigationController.navigationBar.barTintColor = [UIColor darkGrayColor];//状态栏颜色
-    
-    _leftItem = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"goback.png"] style:UIBarButtonItemStylePlain target:self action:@selector(goBack)];
-    self.navigationItem.leftBarButtonItem = _leftItem;
-    _leftItem = nil;
-    
-    _userdefaults = [NSUserDefaults standardUserDefaults];
-    
+    self.leftItem = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"goback.png"] style:UIBarButtonItemStylePlain target:self action:@selector(goBack)];
+    self.navigationItem.leftBarButtonItem = self.leftItem;
+    self.leftItem = nil;
+    self.userdefaults = [NSUserDefaults standardUserDefaults];
+    self.appDelegate = (AppDelegate *)[[UIApplication sharedApplication] delegate];
+    self.rightSwipe = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(goBack)];
+    self.rightSwipe.direction = UISwipeGestureRecognizerDirectionRight;
+    [self.view addGestureRecognizer:self.rightSwipe];
 }
 
 -(void)viewWillAppear:(BOOL)animated
@@ -39,11 +39,24 @@
     self.tabBarController.tabBar.hidden = NO;
 }
 
-//返回键方法重新实现
--(void) goBack
+- (void)didReceiveMemoryWarning
 {
-    
+    [super didReceiveMemoryWarning];
 }
+
+-(void) didGetBattery:(NSInteger)battery forMac:(NSData*)mac{}
+
+-(void) didDiscoverResult:(NSData *)macAddr deviceName:(NSData *)deviceName rssi:(NSNumber *)rssi{}
+
+-(void) didDiscoverComplete{}
+
+-(void) didConnectConfirm:(NSData *)macAddr status:(Boolean)status{}
+
+-(void) didDisconnectIndication:(NSData *)macAddr{}
+
+-(void) didDataSendResponse:(NSData *)macAddr cmd_type:(libCommandType)cmd_type result:(libBleErrorCode)result param_data:(NSData *)param_data{}
+
+-(void) goBack{}
 
 -(NSData *) NSStringConversionToNSData:(NSString*)string
 {
@@ -79,20 +92,42 @@
     return data;
 }
 
-- (void)didReceiveMemoryWarning
+- (NSString *) NSDataConversionToNSString:(NSData*)data
 {
-    [super didReceiveMemoryWarning];
-    // Dispose of any resources that can be recreated.
+    if (data == nil) {
+        return @"";
+    }
+    
+    NSMutableString *hexString = [NSMutableString string];
+    
+    const unsigned char *p = [data bytes];
+    
+    for (int i=0; i < [data length]; i++)
+        [hexString appendFormat:@"%02x", *p++];
+    
+    return hexString;
 }
 
--(BOOL)isNewLock:(NSString*)globalcode
+-(NSData *) getCurrentTimeInterval
 {
-    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
-    NSFetchRequest *request = [[NSFetchRequest alloc] init];
-    [request setEntity:entity];
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"globalcode=%@",globalcode];
+    NSData *dataCurrentTimeInterval;
+    long dateInterval = [[NSDate date] timeIntervalSince1970];
+    Byte byteDateInterval[4];
+    for (NSUInteger index = 0; index < sizeof(byteDateInterval); index++)
+    {
+        byteDateInterval[index] = (dateInterval >> ((3 - index) * 8)) & 0xFF;
+    }
+    dataCurrentTimeInterval = [[NSData alloc] initWithBytes:byteDateInterval length:sizeof(byteDateInterval)];
+    return dataCurrentTimeInterval;
+}
+
+-(BOOL)isNewLockWithDevuserid:(NSString*)devuserid
+{
+    NSManagedObjectContext *context = self.appDelegate.managedObjectContext;
+    NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:LOCKS];
+    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"devuserid=%@",devuserid];
     [request setPredicate:predicate];
-    NSArray *resultArr = [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext executeFetchRequest:request error:nil];
+    NSArray *resultArr = [context executeFetchRequest:request error:nil];
     if (resultArr.count>0) {
         return NO;
     }
@@ -101,52 +136,168 @@
 
 -(void)insertLock:(void(^)(SmartLock *device))addlock
 {
-    SmartLock *lock = [NSEntityDescription insertNewObjectForEntityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
+    NSManagedObjectContext *context = self.appDelegate.managedObjectContext;
+    SmartLock *lock = [NSEntityDescription insertNewObjectForEntityForName:LOCKS inManagedObjectContext:context];
     addlock(lock);
-    [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext save:nil];
+    [context performBlockAndWait:^{
+        [context save:nil];
+//        [context.parentContext performBlock:^{
+//            [context.parentContext save:nil];
+//        }];
+    }];
 }
 
--(void)updateLockMsg:(NSString*)globalcode withupdate:(void(^)(SmartLock *device))update
+-(void)updateLockMsg:(NSString*)devuserid withupdate:(void(^)(SmartLock *device))update
 {
-    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
-    NSFetchRequest *request = [[NSFetchRequest alloc] init];
-    [request setEntity:entity];
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"globalcode=%@",globalcode];
-    [request setPredicate:predicate];
-    SmartLock *lock = [[((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext executeFetchRequest:request error:nil] lastObject];
-    if (lock)
+    NSManagedObjectContext *context = self.appDelegate.privateContext;
+    NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:LOCKS];
+    if (devuserid.length == 20)
     {
-        update(lock);
-        [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext save:nil];
+        NSPredicate *predicate1 = [NSPredicate predicateWithFormat:@"globalcode=%@",devuserid];
+        NSPredicate *predicate2 = [NSPredicate predicateWithFormat:@"ismaster=1"];
+        NSPredicate *predicate = [NSCompoundPredicate andPredicateWithSubpredicates:@[predicate1,predicate2]];
+        [request setPredicate:predicate];
+    }else
+    {
+        NSPredicate *predicate = [NSPredicate predicateWithFormat:@"devuserid=%@",devuserid];
+        [request setPredicate:predicate];
     }
+    __weak __block SmartLock *lock;
+    [context performBlockAndWait:^{
+        __strong typeof(lock) strongLock = lock;
+        strongLock = [[context executeFetchRequest:request error:nil] lastObject];
+        if (strongLock)
+        {
+            update(strongLock);
+            [context save:nil];
+            [context.parentContext performBlockAndWait:^{
+                [context.parentContext save:nil];
+            }];
+        }
+    }];
 }
 
 -(NSArray<SmartLock*>*)showAllManagerLock
 {
-    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
-    NSFetchRequest *request = [[NSFetchRequest alloc] init];
-    [request setEntity:entity];
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"ismaster=%@",@"1"];
+    NSManagedObjectContext *context = self.appDelegate.managedObjectContext;
+    NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:LOCKS];
+    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"ismaster=1"];
     [request setPredicate:predicate];
-    return [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext executeFetchRequest:request error:nil];
+    NSArray *arr = [context executeFetchRequest:request error:nil];
+    return arr;
 }
 
--(NSArray<SmartLock*>*)showAllShareLock
+-(NSArray<SmartLock*>*)showAllShareLockByGlobalcode:(BOOL)byGlobalcode
 {
-    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
-    NSFetchRequest *request = [[NSFetchRequest alloc] init];
-    [request setEntity:entity];
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"ismaster=%@",@"0"];
-    [request setPredicate:predicate];
-    NSMutableArray *arr = [[((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext executeFetchRequest:request error:nil] mutableCopy];
-    for (SmartLock *lock in arr)
+    NSManagedObjectContext *context = self.appDelegate.managedObjectContext;
+    NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:LOCKS];
+    if (byGlobalcode)
     {
-        if ([lock.begin_time isEqualToString:lock.isdeleted])
+        NSPredicate *predicate1 = [NSPredicate predicateWithFormat:@"status=%@",@"1"];
+        NSPredicate *predicate2 = [NSPredicate predicateWithFormat:@"ismaster=%@",@"0"];
+        NSPredicate *predicate = [NSCompoundPredicate andPredicateWithSubpredicates:@[predicate1,predicate2]];
+        [request setPredicate:predicate];
+    }else
+    {
+        NSPredicate *predicate1 = [NSPredicate predicateWithFormat:@"ismaster=%@",@"0"];
+        NSPredicate *predicate2 = [NSPredicate predicateWithFormat:@"isdeleted=%@",@"nodeleted"];
+        NSPredicate *predicate3 = [NSPredicate predicateWithFormat:@"status=%@",@"1"];
+        NSPredicate *predicate = [NSCompoundPredicate andPredicateWithSubpredicates:@[predicate1, predicate2, predicate3]];
+        [request setPredicate:predicate];
+    }
+    NSArray *arr = [context executeFetchRequest:request error:nil];
+    return arr;
+}
+
+-(SmartLock*)lockWithDevuserid:(NSString*)devuserid inLocks:(NSArray<SmartLock *>*)locks
+{
+    for (SmartLock *lock in locks)
+    {
+        if ([devuserid isEqualToString:lock.devuserid])
         {
-            [arr removeObject:lock];
+            return lock;
         }
     }
+    return nil;
+}
+
+-(void)removeUselessLock:(NSArray*)devuseridTemp
+{
+    NSManagedObjectContext *context = self.appDelegate.privateContext;
+    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:context];
+    NSFetchRequest *request = [[NSFetchRequest alloc] init];
+    [request setEntity:entity];
+    NSMutableArray <SmartLock*>* locks = [[context executeFetchRequest:request error:nil] mutableCopy];
+    for (NSString *devuserid in devuseridTemp)
+    {
+        SmartLock *lock = [self lockWithDevuserid:devuserid inLocks:locks];
+        if (lock != nil)
+        {
+            [locks removeObject:lock];
+        }
+    }
+    if (locks.count == 0)
+    {
+        return;
+    }
+    for (SmartLock *lock in locks)
+    {
+        [context performBlock:^{
+            [context deleteObject:lock];
+        }];
+    }
+    [context performBlock:^{
+        [context save:nil];
+        [context.parentContext performBlock:^{
+            [context.parentContext save:nil];
+        }];
+    }];
+}
+
+- (NSArray<SmartLock*>*)getAllTopPageLock
+{
+    NSManagedObjectContext *context = self.appDelegate.managedObjectContext;
+    NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:LOCKS];
+    NSPredicate *predicate1 = [NSPredicate predicateWithFormat:@"istoppage=%@",[NSNumber numberWithBool:YES]];
+    NSPredicate *predicate2 = [NSPredicate predicateWithFormat:@"status=%@",@"1"];
+    NSPredicate *predicate3 = [NSPredicate predicateWithFormat:@"isdeleted=%@",@"nodeleted"];
+    NSPredicate *predicate = [NSCompoundPredicate andPredicateWithSubpredicates:@[predicate1,predicate2,predicate3]];
+    [request setPredicate:predicate];
+    NSArray *arr = [context executeFetchRequest:request error:nil];
     return arr;
+}
+
+-(NSArray<SmartLock*>*)getAllAutoUnlockedLock
+{
+    NSManagedObjectContext *context = self.appDelegate.managedObjectContext;
+    NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:LOCKS];
+    NSPredicate *predicate1 = [NSPredicate predicateWithFormat:@"isautounlock=%@",[NSNumber numberWithBool:YES]];
+    NSPredicate *predicate2 = [NSPredicate predicateWithFormat:@"status=%@",@"1"];
+    NSPredicate *predicate3 = [NSPredicate predicateWithFormat:@"isdeleted=%@",@"nodeleted"];
+    NSPredicate *predicate = [NSCompoundPredicate andPredicateWithSubpredicates:@[predicate1,predicate2,predicate3]];
+    [request setPredicate:predicate];
+    NSArray *arr = [context executeFetchRequest:request error:nil];
+    return arr;
+}
+
+-(void)clearAllData
+{
+    NSManagedObjectContext *context = ((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext;
+    [self.userdefaults removeObjectForKey:@"wirelesslog"];
+    [self.userdefaults synchronize];
+    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:context];
+    NSFetchRequest *request = [[NSFetchRequest alloc] init];
+    [request setEntity:entity];
+    NSArray *arr = [context executeFetchRequest:request error:nil];
+    for (NSManagedObject *obj in arr)
+    {
+        [context performBlock:^{
+            [context deleteObject:obj];
+        }];
+    }
+    [context performBlock:^{
+        [context save:nil];
+    }];
 }
 
 @end

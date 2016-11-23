@@ -10,17 +10,18 @@
 #import "MD5Code.h"
 #import "CheckCharacter.h"
 #import "KeyType.h"
+#import "MBProgressHUD.h"
 
-
-@interface CellForShare()<KeyTypeDelegate,HTTPPostDelegate>
+@interface CellForShare()<KeyTypeDelegate,HTTPPostDelegate,libBleLockDelegate>
 {
-    httpPostType _type;
-    NSInteger _selectpath;
+    NSIndexPath *_selectpath;
 }
-@property (strong,nonatomic) KeyType *keytype;
+@property (strong, nonatomic) NSDateFormatter *formatter;
+@property (strong, nonatomic) KeyType *keytype;
 @property (strong, nonatomic) HTTPPost *httppost;
 @property (strong, nonatomic) NSString *st_time;
 @property (strong, nonatomic) NSString *en_time;
+@property (strong, nonatomic) NSMutableArray *deleteAuthcode;
 @end
 
 @implementation CellForShare
@@ -28,115 +29,186 @@
 - (void)awakeFromNib
 {
     [super awakeFromNib];
-    _accountforshareduser.delegate = self;
-    _userdefaults = [NSUserDefaults standardUserDefaults];
-    _shareTable.delegate = self;
-    _shareTable.dataSource = self;
-    _shareTable.showsVerticalScrollIndicator = NO;
-    _appDelegate = (AppDelegate*)[[UIApplication sharedApplication] delegate];
-    _appDelegate.appLibBleLock._delegate = self;
-    self.layer.borderWidth = 1;
-    self.layer.borderColor = [[UIColor lightGrayColor] CGColor];
-    _httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
-    _httppost.delegate = self;
-    _datasrc = [NSMutableArray array];
-   
 }
 
-- (void)setSelected:(BOOL)selected animated:(BOOL)animated
+-(void)drawRect:(CGRect)rect
 {
-    [super setSelected:selected animated:animated];
-    //同步分享出去的锁
-    
-    NSString *url = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=getdevshare&account=%@&apptoken=%@&globalcode=%@&devcode=%@",
-                     [_userdefaults objectForKey:@"account"],
-                     [_userdefaults objectForKey:@"appToken"],
-                     [_managerlock globalcode],
-                     [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)]];
-    [_httppost httpPostWithurl:url];
-    _type = getdevshare;
-   
+    [super drawRect:rect];
+    self.accountforshareduser.delegate = self;
+    self.shareTable.delegate = self;
+    self.shareTable.dataSource = self;
+    self.shareTable.showsVerticalScrollIndicator = NO;
+    self.httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
 }
 
--(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval
+-(void)layoutSubviews
 {
-    
-    switch (_type)
+    [super layoutSubviews];
+    self.datasrc = nil;
+    self.datasrc = [NSMutableArray array];
+    [self performSelector:@selector(getsharelock) withObject:nil afterDelay:0.1];
+}
+- (IBAction)fetchWithAccount:(id)sender
+{
+    if ([self.accountforshareduser.text isEqualToString:@""])
     {
+        self.datasrc = self.datasrcTemp.mutableCopy;
+        [self.shareTable reloadData];
+        return;
+    }
+    if (self.accountforshareduser.text == nil)
+    {
+        return;
+    }
+    self.datasrc = [self sortFromArray:self.datasrcTemp byKeyword:self.accountforshareduser.text];
+    [self.shareTable reloadData];
+}
+
+- (NSMutableArray *)sortFromArray:(NSArray*)arr byKeyword:(NSString*)keyword
+{
+    NSMutableArray <NSDictionary*>*result = [NSMutableArray array];
+    for (NSDictionary *dict in arr)
+    {
+        if (keyword.length > [dict[@"authmobile"] length])
+        {
+            continue;
+        }
+        NSString *accountCut = [[dict[@"authmobile"] mutableCopy] substringWithRange:NSMakeRange(0, keyword.length)];
+        if ([keyword isEqualToString:accountCut])
+        {
+            [result addObject:dict];
+        }
+    }
+    return result;
+}
+
+-(NSDateFormatter *)formatter
+{
+    if (!_formatter) {
+        _formatter = [[NSDateFormatter alloc] init];
+        [_formatter setDateFormat: @"yyyyMMddHHmmss"];
+    }
+    return _formatter;
+}
+
+-(void)getsharelock
+{
+    NSString *url = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=getdevshare&account=%@&apptoken=%@&globalcode=%@&devcode=%@",
+                     [self.userdefaults objectForKey:@"account"],
+                     [self.userdefaults objectForKey:@"appToken"],
+                     [self.managerlock globalcode],
+                     [[self.managerlock uuid] substringWithRange:NSMakeRange(68, 32)]];
+    self.httppost.delegate = self;
+    [self.httppost httpPostWithurl:url type:getdevshare];
+}
+
+-(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval type:(httpPostType)type
+{
+    switch (type)
+    {
+        case checkaccount:
+        {
+            if ([[dic objectForKey:@"status"] isEqualToString:@"1"])
+            {
+                /*选择分享密钥类型*/
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.st_time = @"";
+                    self.en_time = @"";
+                    self.keytype = (KeyType*)[[[NSBundle  mainBundle] loadNibNamed:@"keytype" owner:self options:nil] lastObject];
+                    self.keytype.frame = CGRectMake(0.0, 0.0, self.superview.frame.size.width, self.superview.frame.size.height);
+                    self.keytype.delegate = self;
+                    [self.superview addSubview:self.keytype];
+                });
+            }else
+            {
+                [self textExample:@"该用户不存在"];
+            }
+        }
+            break;
         case getdevshare:
         {
-            _datasrc = [dic objectForKey:@"data"];
-            
-            for (NSInteger i=0; i<_datasrc.count; i++)
-            {
-                if ([[_datasrc[i] objectForKey:@"authmobile"] isEqualToString:@""])
-                {
-                    [_datasrc removeObjectAtIndex:i];
-                }
-            }
+            [self.datasrc removeAllObjects];
+            self.datasrc = [[dic objectForKey:@"data"] mutableCopy];
+            self.datasrcTemp = self.datasrc;
             dispatch_async(dispatch_get_main_queue(), ^
             {
-                //删除多余信息（effectimes < = 0）
-                [_shareTable reloadData];
+                [self.shareTable reloadData];
             });
+            //固化本地数据
+            for (NSDictionary *dict in self.datasrcTemp)
+            {
+                if ([self isNewRecord:dict[@"comucode"]])
+                {
+                    //insert
+                    [self insertShareUserWithUser:^(ShareUser *user) {
+                        user.devuserid = dict[@"devuserid"];
+                        user.authmobile = dict[@"authmobile"];
+                        user.comucode = dict[@"comucode"];
+                        user.devstatus = dict[@"devstatus"];
+                        user.isdel = dict[@"isdel"];
+                        user.effectimes = dict[@"effectimes"];
+                        user.begin_time = dict[@"begin_time"];
+                        user.end_time = dict[@"end_time"];
+                        user.usedtimes = dict[@"usedtimes"];
+                        user.sharetimes = dict[@"sharetimes"];
+                        NSArray *authc = [NSArray arrayWithObject:dict[@"authcode"]];
+                        user.authcode = authc;
+                    }];
+                }else
+                {
+                    //update
+                    [self updateUser:dict[@"comucode"] withChange:^(ShareUser *user) {
+                        user.devstatus = dict[@"devstatus"];
+                        user.isdel = dict[@"isdel"];
+                        user.effectimes = dict[@"effectimes"];
+                        user.usedtimes = dict[@"usedtimes"];
+                        if (![self isExsistingUser:dict[@"authcode"] inArray:user.authcode])
+                        {
+                            NSMutableArray *authc = [NSMutableArray arrayWithArray:user.authcode];
+                            [authc addObject:dict[@"authcode"]];
+                            user.authcode = authc;
+                        }
+                    }];
+                }
+            }
         }
             break;
             
-            
         case addshare:
         {
-            
             if ([[dic objectForKey:@"status"] intValue] == 1)
             {
                 //写入分享次数
-                
-                [self updateLockMsg:[_managerlock globalcode] withupdate:^(SmartLock *device) {
-                    device.sharenum = [NSString stringWithFormat:@"%li",(long)[device.maxshare integerValue] - [[dic objectForKey:@"oversharenum"] integerValue]];
+                [self updateLockMsg:self.managerlock.devuserid withupdate:^(SmartLock *device) {
+                    NSInteger oversharenum = [[dic objectForKey:@"oversharenum"] integerValue];
+                    NSInteger maxshare = [device.maxshare integerValue];
+                    device.sharenum = [NSString stringWithFormat:@"%li",(long)(maxshare - oversharenum)];
                 }];
                 //分享成功
                 //更新分享出去的锁的本地列表
-                NSString *url = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=getdevshare&account=%@&apptoken=%@&globalcode=%@&devcode=%@",
-                                 [_userdefaults objectForKey:@"account"],
-                                 [_userdefaults objectForKey:@"appToken"],
-                                 [_managerlock globalcode],
-                                 [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)]];
-                
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                    [_httppost httpPostWithurl:url];
-                    _type = getdevshare;
+                    [self getsharelock];
+                   
                 });
             }
             dispatch_async(dispatch_get_main_queue(), ^{
-                _accountforshareduser.placeholder = @"被分享人账号";
-                _accountforshareduser.text = @"";
+                self.accountforshareduser.placeholder = @"被分享人账号";
+                self.accountforshareduser.text = @"";
             });
-            
-            
         }break;
             
         case delshare:
         {
-            if ([dic objectForKey:@"status"])
+            if ([[dic objectForKey:@"status"] isEqualToString:@"1"])
             {
-                //在设备中删除
-                NSMutableData *data = [[NSMutableData alloc] initWithData:_guid];
-                NSData *uuid = [self NSStringConversionToNSData:[self.userdefaults objectForKey:@"uuid"]];
-                NSData *sb = [self NSStringConversionToNSData:[self.userdefaults objectForKey:@"appToken"]];
-                NSData *sf = [self NSStringConversionToNSData:[[_datasrc objectAtIndex:_selectpath] objectForKey:@"authcode"]];
-                [data appendData:uuid];
-                [data appendData:sb];
-                [data appendData:sf];
-                
-                [_appDelegate.appLibBleLock bleDataSendRequest:_mac cmd_type:libBleCmdDeleteSharerOpenLockUUID param_data:data];
-                //删除成功
-                
-                [_datasrc removeObjectAtIndex:_selectpath];
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    [_shareTable reloadData];
+                    ShareTableCellTableViewCell *cell = [self.shareTable cellForRowAtIndexPath:_selectpath];
+                    NSString *textString = cell.sharedaccount.text;
+                    NSMutableAttributedString *str = [[NSMutableAttributedString alloc] initWithString:textString];
+                    [str addAttribute:NSForegroundColorAttributeName value:[UIColor redColor] range:NSMakeRange(0,textString.length)];
+                    cell.sharedaccount.attributedText = str;
                 });
-                
             }
-
         }break;
         default:
             break;
@@ -144,47 +216,58 @@
 }
 
 /*************表格式图协议函数************/
--(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath{
+-(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
     return 30;
 }
 
--(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
-    return _datasrc.count;
+-(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+{
+    return self.datasrc.count;
 }
 
--(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
-
-    UITableViewCell *cell =  [_shareTable dequeueReusableCellWithIdentifier:@"cell"];
-    if (cell == nil) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"cell"];
+-(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    static NSString *cellid = @"ShareTableCellTableViewCell";
+    ShareTableCellTableViewCell *cell =  [tableView dequeueReusableCellWithIdentifier:cellid];
+    if (cell == nil)
+    {
+        [tableView registerNib:[UINib nibWithNibName:@"ShareTableCellTableViewCell" bundle:nil] forCellReuseIdentifier:cellid];
+        cell = [tableView dequeueReusableCellWithIdentifier:cellid];
     }
-    ShareTableCellTableViewCell *cell0 = (ShareTableCellTableViewCell *)[[[NSBundle  mainBundle]  loadNibNamed:@"ShareTableCellTableViewCell" owner:self options:nil]  lastObject];
-    cell0.path = indexPath;
-    cell0.delegate = self;
-    switch ([[[_datasrc objectAtIndex:indexPath.row] objectForKey:@"keytype"]intValue]) {
+    cell.path = indexPath;
+    cell.delegate = self;
+    switch ([[[self.datasrc objectAtIndex:indexPath.row] objectForKey:@"keytype"] intValue]) {
         case 1:
         {
-            cell0.activetime.text = @"无限";
-            cell0.unlocktimes.text = @"无限";
+            cell.activetime.text = @"无限";
+            cell.unlocktimes.text = [NSString stringWithFormat:@"%@/*",[self.datasrc[indexPath.row] objectForKey:@"usedtimes"]];
         }
             break;
         case 2:
         {
-            
             NSDateFormatter * formatter = [[NSDateFormatter alloc] init];
             [formatter setDateFormat: @"yyyyMMddHHmmss"];
-            NSDate *end = [formatter dateFromString:[_datasrc[indexPath.row] objectForKey:@"end_time"]];
+            NSDate *end = [formatter dateFromString:[self.datasrc[indexPath.row] objectForKey:@"end_time"]];
             NSTimeInterval interval = [end timeIntervalSinceNow];
-            cell0.activetime.text = [NSString stringWithFormat:@"%.1f",interval/3600];
-            cell0.unlocktimes.text = @"无限";
+            if (interval < 0)
+            {
+                cell.activetime.text = @"0";
+            }else
+            {
+                cell.activetime.text = [NSString stringWithFormat:@"%.1f",(interval < 0)?0.0:interval/3600];
+            }
+            cell.unlocktimes.text = [NSString stringWithFormat:@"%@/*",[self.datasrc[indexPath.row] objectForKey:@"usedtimes"]];;
         }
             break;
 
         case 3:
         {
     
-            cell0.activetime.text = @"无限";
-            cell0.unlocktimes.text = [[_datasrc objectAtIndex:indexPath.row] objectForKey:@"effectimes"];
+            cell.activetime.text = @"无限";
+            NSInteger used = [[self.datasrc[indexPath.row] objectForKey:@"usedtimes"] integerValue];
+            NSInteger sharetimes = [[self.datasrc[indexPath.row] objectForKey:@"sharetimes"] integerValue];
+            cell.unlocktimes.text = [NSString stringWithFormat:@"%li/%li",(long)used,(long)sharetimes];
         }
             break;
 
@@ -192,83 +275,104 @@
         {
             NSDateFormatter * formatter = [[NSDateFormatter alloc] init];
             [formatter setDateFormat: @"yyyyMMddHHmmss"];
-            NSDate *end = [formatter dateFromString:[_datasrc[indexPath.row] objectForKey:@"end_time"]];
+            NSDate *end = [formatter dateFromString:[self.datasrc[indexPath.row] objectForKey:@"end_time"]];
             NSTimeInterval interval = [end timeIntervalSinceNow];
-            cell0.activetime.text = [NSString stringWithFormat:@"%.1f",interval/3600];
-            cell0.unlocktimes.text = [[_datasrc objectAtIndex:indexPath.row] objectForKey:@"effectimes"];
+            if (interval < 0)
+            {
+                cell.activetime.text = @"0";
+            }else
+            {
+                cell.activetime.text = [NSString stringWithFormat:@"%.1f",(interval < 0)?0.0:interval/3600];
+            }
+            NSInteger used = [[self.datasrc[indexPath.row] objectForKey:@"usedtimes"] integerValue];
+            NSInteger sharetimes = [[self.datasrc[indexPath.row] objectForKey:@"sharetimes"] integerValue];
+            cell.unlocktimes.text = [NSString stringWithFormat:@"%li/%li",(long)used,(long)sharetimes];
         }
             break;
-
+            
         default:
             break;
     }
-    NSMutableString *time = [[[_datasrc objectAtIndex:indexPath.row] objectForKey:@"begin_time"] mutableCopy];
+    NSMutableString *time = [[[self.datasrc objectAtIndex:indexPath.row] objectForKey:@"begin_time"] mutableCopy];
     if ([time isEqualToString:@""])
     {
-        cell0.sharedtime.text = @"无限制";
+        cell.sharedtime.text = @"无限制";
     }else
     {
         [time insertString:@" " atIndex:8];
         [time insertString:@":" atIndex:11];
         [time insertString:@":" atIndex:14];
-        cell0.sharedtime.text = time;
-
+        cell.sharedtime.text = time;
     }
-    cell0.sharedaccount.text = [[_datasrc objectAtIndex:indexPath.row] objectForKey:@"authmobile"];
-    cell = cell0;
+    NSString *phoneStr = [[self.datasrc objectAtIndex:indexPath.row] objectForKey:@"authmobile"];
+    if ([[self.datasrc[indexPath.row] objectForKey:@"devstatus"] isEqualToString:@"1"])
+    {
+        cell.sharedaccount.text = phoneStr;
+    }else
+    {
+        NSMutableAttributedString *str = [[NSMutableAttributedString alloc] initWithString:phoneStr];
+        [str addAttribute:NSForegroundColorAttributeName value:[UIColor redColor] range:NSMakeRange(0,phoneStr.length)];
+        cell.sharedaccount.attributedText = str;
+    }
     return cell;
 }
 
 /*****************添加新分享*****************/
 - (IBAction)addshareduser:(UIButton *)sender
 {
-    
-    [_accountforshareduser resignFirstResponder];
-    NSString *str = [NSString stringWithFormat:@"%li",(long)([[_managerlock maxshare] integerValue]-[[_managerlock sharenum] integerValue])];
-    while ([str integerValue] == 0 && str != nil)
+    [self.accountforshareduser resignFirstResponder];
+    if ([self.accountforshareduser.text isEqualToString:[self.userdefaults objectForKey:@"account"]])
+    {
+        [self textExample:@"不能分享密钥给自己"];
+        return;
+    }
+    if([[self.managerlock maxshare] isEqualToString:[self.managerlock sharenum]])
     {
         //分享次数不足
-        UIAlertController *alert = [[UIAlertController alloc] init];
-        alert = [UIAlertController alertControllerWithTitle:@"警告" message:@"分享次数不足！" preferredStyle:1];
-        [alert addAction:[UIAlertAction actionWithTitle:@"确定" style:0 handler:^(UIAlertAction * _Nonnull action) {
-            
-        }]];
+        [self textExample:@"分享次数不足！"];
         return;
     }
     //选择分享类型
-    
-    if (![_accountforshareduser.text isEqualToString:@""])
+    if (![self.accountforshareduser.text isEqualToString:@""])
     {
         //http请求
-        while (![CheckCharacter isValidateMobileNumber:_accountforshareduser.text]) {
-            _accountforshareduser.placeholder = @"手机号有误，请重输！";
+        if (![CheckCharacter isValidateMobileNumber:self.accountforshareduser.text])
+        {
+            [self textExample:@"帐号格式有误！"];
             return;
         }
-        
-        /*选择分享密钥类型*/
-        _keytype = (KeyType*)[[[NSBundle  mainBundle] loadNibNamed:@"keytype" owner:self options:nil] lastObject];
-        _keytype.frame = CGRectMake(0.0, 0.0, self.superview.frame.size.width, self.superview.frame.size.height);
-        _keytype.delegate = self;
-        [self.superview addSubview:_keytype];
-        _st_time = @"";
-        _en_time = @"";
-        
+        //检测账号是否存在
+        NSString *urlStr = @"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=checkaccount";
+        NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@",self.accountforshareduser.text];
+        [self.httppost httpPostWithurl :urlStr body:body type:checkaccount];
     }
 }
 
--(void)onGetDate:(NSString *)date type:(DateType)type
+- (void)textExample:(NSString*)str
 {
-    switch (type) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+        MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.superview animated:YES];
+        hud.mode = MBProgressHUDModeText;
+        hud.label.text = NSLocalizedString(str, @"");
+        [hud.label setFont:[UIFont systemFontOfSize:12.0]];
+        hud.offset = CGPointMake(0.f, 0.f);
+        [hud hideAnimated:YES afterDelay:2.f];
+    });
+}
+
+-(void)onGetDate:(NSString *)date type:(DateType)datetype
+{
+    switch (datetype) {
         case 0:
         {
-            _st_time = date;
+            self.st_time = date;
         }
             break;
             
             
         case 1:
         {
-            _en_time = date;
+            self.en_time = date;
         }
             break;
         default:
@@ -279,14 +383,35 @@
 -(void)confirm
 {
    
-    [self add:_keytype.keytype :@[_st_time,_en_time] :_keytype.effectimes.text];
+    [self add:self.keytype.keytype :@[self.st_time,self.en_time] :self.keytype.effectimes.text];
 }
 
 -(void)cancel
 {
    
-    [_keytype removeFromSuperview];
-    _keytype = nil;
+    [self.keytype removeFromSuperview];
+    self.keytype = nil;
+}
+
+-(void)addsharelock:(NSString*)beginTime :(NSString*)endTime :(NSString*)efftimes andType:(NSInteger)keytype
+{
+    NSString *nowdate = [self.formatter stringFromDate:[[NSDate alloc] init]];
+    NSString *md5string = [NSString stringWithFormat:@"account=%@&apptoken=%@&authmobile=%@&devcode=%@&globalcode=%@&keytype=%li&oper_time=%@&signkey=22jiadfw12e1212jadf9sdafkwezzxwe",
+                           [self.userdefaults objectForKey:@"account"],
+                           [self.userdefaults objectForKey:@"appToken"],
+                           self.accountforshareduser.text,
+                           [[self.managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
+                           [self.managerlock globalcode],
+                           (long)keytype, nowdate];
+    NSString *sign = [MD5Code md5:md5string];
+    NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=addshare&account=%@&apptoken=%@&globalcode=%@&devcode=%@&authmobile=%@&keytype=%li&effectimes=%@&begin_time=%@&end_time=%@&oper_time=%@&sign=%@",
+                        [self.userdefaults objectForKey:@"account"],
+                        [self.userdefaults objectForKey:@"appToken"],
+                        [self.managerlock globalcode],
+                        [[self.managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
+                        self.accountforshareduser.text, (long)keytype, efftimes, beginTime, endTime, nowdate, sign];
+    self.httppost.delegate = self;
+    [self.httppost httpPostWithurl:urlStr type:addshare];
 }
 
 -(void)add:(NSInteger)keytype :(NSArray *)times :(NSString *) effectimes
@@ -295,30 +420,8 @@
     {
         case 1:
         {
-            NSDate *now = [[NSDate alloc] init];
-            NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-            [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
-            NSString *nowdate = [dateFormatter stringFromDate:now];
+            [self addsharelock:@"" :@"" :@"0" andType:1];
             
-            NSString *md5string = [NSString stringWithFormat:@"account=%@&apptoken=%@&authmobile=%@&devcode=%@&globalcode=%@&keytype=1&oper_time=%@&signkey=22jiadfw12e1212jadf9sdafkwezzxwe",
-                                   [self.userdefaults objectForKey:@"account"],
-                                   [self.userdefaults objectForKey:@"appToken"],
-                                   _accountforshareduser.text,
-                                   [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
-                                   [_managerlock globalcode],
-                                   nowdate];
-            
-            NSString *sign = [MD5Code md5:md5string];
-            NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=addshare&account=%@&apptoken=%@&globalcode=%@&devcode=%@&authmobile=%@&keytype=1&effectimes=0&begin_time=%@&end_time=%@&oper_time=%@&sign=%@",
-                                [_userdefaults objectForKey:@"account"],
-                                [_userdefaults objectForKey:@"appToken"],
-                                [_managerlock globalcode],
-                                [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
-                                _accountforshareduser.text, @"", @"", nowdate, sign];
-            
-            
-            [_httppost httpPostWithurl:urlStr];
-            _type = addshare;
         }
             break;
         
@@ -329,30 +432,7 @@
             {
                 return;
             }
-            NSDate *now = [[NSDate alloc] init];
-            NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-            [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
-            NSString *nowdate = [dateFormatter stringFromDate:now];
-            
-            NSString *md5string = [NSString stringWithFormat:@"account=%@&apptoken=%@&authmobile=%@&devcode=%@&globalcode=%@&keytype=2&oper_time=%@&signkey=22jiadfw12e1212jadf9sdafkwezzxwe",
-                                   [self.userdefaults objectForKey:@"account"],
-                                   [self.userdefaults objectForKey:@"appToken"],
-                                   _accountforshareduser.text,
-                                   [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
-                                   [_managerlock globalcode],
-                                   nowdate];
-            NSString *sign = [MD5Code md5:md5string];
-            
-            NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=addshare&account=%@&apptoken=%@&globalcode=%@&devcode=%@&authmobile=%@&keytype=2&effectimes=%@&begin_time=%@&end_time=%@&oper_time=%@&sign=%@",
-                                [_userdefaults objectForKey:@"account"],
-                                [_userdefaults objectForKey:@"appToken"],
-                                [_managerlock globalcode],
-                                [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
-                                _accountforshareduser.text, @"0", times[0], times[1], nowdate, sign];
-            
-            [_httppost httpPostWithurl:urlStr];
-            _type = addshare;
-            
+            [self addsharelock:times[0] :times[1] :@"0" andType:2];
         }
             break;
             
@@ -362,29 +442,7 @@
             {
                 return;
             }
-            
-            NSDate *now = [[NSDate alloc] init];
-            NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-            [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
-            NSString *nowdate = [dateFormatter stringFromDate:now];
-            
-            NSString *md5string = [NSString stringWithFormat:@"account=%@&apptoken=%@&authmobile=%@&devcode=%@&globalcode=%@&keytype=3&oper_time=%@&signkey=22jiadfw12e1212jadf9sdafkwezzxwe",
-                                   [self.userdefaults objectForKey:@"account"],
-                                   [self.userdefaults objectForKey:@"appToken"],
-                                   _accountforshareduser.text,
-                                   [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
-                                   [_managerlock globalcode],
-                                   nowdate];
-            NSString *sign = [MD5Code md5:md5string];
-            NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=addshare&account=%@&apptoken=%@&globalcode=%@&devcode=%@&authmobile=%@&keytype=3&effectimes=%@&begin_time=%@&end_time=%@&oper_time=%@&sign=%@",
-                                [_userdefaults objectForKey:@"account"],
-                                [_userdefaults objectForKey:@"appToken"],
-                                [_managerlock globalcode],
-                                [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
-                                _accountforshareduser.text, effectimes, @"", @"", nowdate, sign];
-            [_httppost httpPostWithurl:urlStr];
-            _type = addshare;
-
+            [self addsharelock:@"" :@"" :effectimes andType:3];
         }
             break;
         
@@ -398,140 +456,183 @@
             if ([effectimes isEqualToString:@""]) {
                 return;
             }
-            
-            NSDate *now = [[NSDate alloc] init];
-            NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-            [dateFormatter setDateFormat:@"yyyyMMddHHmmss"];
-            NSString *nowdate = [dateFormatter stringFromDate:now];
-            
-            NSString *md5string = [NSString stringWithFormat:@"account=%@&apptoken=%@&authmobile=%@&devcode=%@&globalcode=%@&keytype=4&oper_time=%@&signkey=22jiadfw12e1212jadf9sdafkwezzxwe",
-                                   [self.userdefaults objectForKey:@"account"],
-                                   [self.userdefaults objectForKey:@"appToken"],
-                                   _accountforshareduser.text,
-                                   [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
-                                   [_managerlock globalcode],
-                                   nowdate];
-            NSString *sign = [MD5Code md5:md5string];
-            NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=addshare&account=%@&apptoken=%@&globalcode=%@&devcode=%@&authmobile=%@&keytype=4&effectimes=%@&begin_time=%@&end_time=%@&oper_time=%@&sign=%@",
-                                [_userdefaults objectForKey:@"account"],
-                                [_userdefaults objectForKey:@"appToken"],
-                                [_managerlock globalcode],
-                                [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
-                                _accountforshareduser.text, effectimes, times[0], times[1], nowdate, sign];
-            [_httppost httpPostWithurl:urlStr];
-            _type = addshare;
+           [self addsharelock:times[0] :times[1] :effectimes andType:4];
         }
             break;
         default:
             break;
     }
-    
-    [_keytype removeFromSuperview];
-    _keytype = nil;
+    [self.keytype removeFromSuperview];
+    self.keytype = nil;
 
 }
-/************************删除分享者***********************/
--(void)deleteSharUser:(NSIndexPath *)path
-{
-    //http删除请求
-    //
-    NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=delshare&account=%@&apptoken=%@&globalcode=%@&devcode=%@&devuserid=%@",
-                        [_userdefaults objectForKey:@"account"],
-                        [_userdefaults objectForKey:@"appToken"],
-                        [_managerlock globalcode],
-                        [[_managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
-                        [[_datasrc objectAtIndex:path.row] objectForKey:@"devuserid"]];
-    [_httppost httpPostWithurl:urlStr];
-    _type = delshare;
-    _selectpath = path.row;
-}
 
--(NSData *) NSStringConversionToNSData:(NSString*)string
+-(void)didConnectConfirm:(NSData *)macAddr status:(Boolean)status
 {
-    if (string == nil)
-        return nil;
-    const char *ch = [string cStringUsingEncoding:NSUTF8StringEncoding];
-    NSMutableData *data = [NSMutableData data];
-    while (*ch) {
-        char byte = 0;
-        if ('0' <= *ch && *ch <= '9')
-            byte = *ch - '0';
-        else if ('a' <= *ch && *ch <= 'f')
-            byte = *ch - 'a' + 10;
-        else if ('A' <= *ch && *ch <= 'F')
-            byte = *ch - 'A' + 10;
-        else
-            return nil;
-        ch++;
-        byte = byte << 4;
-        if (*ch) {
-            if ('0' <= *ch && *ch <= '9')
-                byte += *ch - '0';
-            else if ('a' <= *ch && *ch <= 'f')
-                byte += *ch - 'a' + 10;
-            else if ('A' <= *ch && *ch <= 'F')
-                byte += *ch - 'A' + 10;
-            else
-                return nil;
-            ch++;
-        }
-        [data appendBytes:&byte length:1];
-    }
-    return data;
-}
-
--(NSData *) getCurrentTimeInterval
-{
-    NSData *dataCurrentTimeInterval;
-    long dateInterval = [[NSDate date] timeIntervalSince1970];
-    Byte byteDateInterval[4];
-    for (NSUInteger index = 0; index < sizeof(byteDateInterval); index++)
+    if (!status)
     {
-        byteDateInterval[index] = (dateInterval >> ((3 - index) * 8)) & 0xFF;
+        [self textExample:@"连接蓝牙失败，删除不成功"];
+        return;
     }
-    dataCurrentTimeInterval = [[NSData alloc] initWithBytes:byteDateInterval length:sizeof(byteDateInterval)];
-    return dataCurrentTimeInterval;
+    NSMutableData* uuid_b = [[self NSStringConversionToNSData:[self.managerlock.uuid substringWithRange:NSMakeRange(0, 68)]] mutableCopy];
+    NSData *authcode = [self NSStringConversionToNSData:self.deleteAuthcode.lastObject];
+    [uuid_b appendData:authcode];
+    self.appDelegate.appLibBleLock.delegate = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self.appDelegate.appLibBleLock bleDataSendRequest:macAddr cmd_type:libBleCmdDeleteSharerOpenLockUUID param_data:uuid_b];
+    });
 }
-
-
-/*********************蓝牙协议函数********************/
--(void)didConnectConfirm:(NSData *)macAddr status:(Boolean)status{}
-
--(void)didDisconnectIndication:(NSData *)macAddr{}
 
 -(void)didDataSendResponse:(NSData *)macAddr cmd_type:(libCommandType)cmd_type result:(libBleErrorCode)result param_data:(NSData *)param_data
 {
     switch (cmd_type) {
-        case libBleCmdDeleteSharerOpenLockUUID:{
-            if (!result) {
-                NSLog(@"删除分享成功！");
-            }else{
-                NSLog(@"删除分享失败！");}
-        }break;
+        case libBleCmdDeleteSharerOpenLockUUID:
+        {
+            [self.deleteAuthcode removeLastObject];
+            if (result == libBleErrorCodeNone)
+            {
+                [self deleteUser];
+                return;
+            }
+            if (self.deleteAuthcode.count != 0)
+            {
+                NSMutableData* uuid_b = [[self NSStringConversionToNSData:[self.managerlock.uuid substringWithRange:NSMakeRange(0, 68)]] mutableCopy];
+                NSData *authcode = [self NSStringConversionToNSData:self.deleteAuthcode.lastObject];
+                [uuid_b appendData:authcode];
+                self.appDelegate.appLibBleLock.delegate = self;
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    [self.appDelegate.appLibBleLock bleDataSendRequest:macAddr cmd_type:libBleCmdDeleteSharerOpenLockUUID param_data:uuid_b];
+                });
+            }else
+            {
+                if ([[self.datasrc[_selectpath.row] objectForKey:@"usedtimes"] isEqualToString:@"0"])
+                {
+                    [self textExample:@"分享者用户还未绑定！"];
+                    
+                }else
+                {
+                    [self textExample:@"删除失败！"];
+                }
+            }
+        }
+            break;
+            
         default:
             break;
     }
 }
 
+/************************删除分享者***********************/
+-(void)deleteSharUser:(NSIndexPath *)path
+{
+    //http删除请求
+    if (self.datasrc == nil || self.datasrc.count == 0)
+    {
+        return;
+    }
+    if (![[self.datasrc[path.row] objectForKey:@"devstatus"] isEqualToString:@"1"])
+    {
+        [self textExample:@"该分享已被取消，钥匙已失效!"];
+        return;
+    }
+    self.deleteAuthcode = [self getAuthcode:[self.datasrc[path.row] objectForKey:@"devuserid"]].mutableCopy;
+    _selectpath = path;
+    NSMutableData* guid = [[self NSStringConversionToNSData:self.managerlock.globalcode] mutableCopy];
+    NSData *mac = [guid subdataWithRange:NSMakeRange(0, 6)];
+    self.appDelegate.appLibBleLock.delegate = self;
+    [self.appDelegate.appLibBleLock bleConnectRequest:mac];
+}
 
--(BOOL)textFieldShouldReturn:(UITextField *)textField{
+-(void)deleteUser
+{
+    NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=delshare&account=%@&apptoken=%@&globalcode=%@&devcode=%@&devuserid=%@&actstate=1",
+                        [self.userdefaults objectForKey:@"account"],
+                        [self.userdefaults objectForKey:@"appToken"],
+                        [self.managerlock globalcode],
+                        [[self.managerlock uuid] substringWithRange:NSMakeRange(68, 32)],
+                        [[self.datasrc objectAtIndex:_selectpath.row] objectForKey:@"devuserid"]];
+    self.httppost.delegate = self;
+    [self.httppost httpPostWithurl:urlStr type:delshare];
+}
+
+-(BOOL)textFieldShouldReturn:(UITextField *)textField
+{
     [textField resignFirstResponder];
     return YES;
 }
 
--(void)didGetBattery:(NSInteger)battery forMac:(NSData *)mac{}
--(void)updateLockMsg:(NSString*)globalcode withupdate:(void(^)(SmartLock *device))update
+#pragma mark - coredata
+
+-(BOOL)isNewRecord:(NSString*)commucode
 {
-    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
-    NSFetchRequest *request = [[NSFetchRequest alloc] init];
-    [request setEntity:entity];
-    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"globalcode=%@",globalcode];
+    NSManagedObjectContext *context = self.appDelegate.managedObjectContext;
+    NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:SHARE];
+    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"comucode=%@",commucode];
     [request setPredicate:predicate];
-    SmartLock *lock = [[((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext executeFetchRequest:request error:nil] lastObject];
-    if (lock)
-    {
-        update(lock);
-        [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext save:nil];
+    NSArray *resultArr = [context executeFetchRequest:request error:nil];
+    if (resultArr.count>0) {
+        return NO;
     }
+    return YES;
+}
+
+-(void)insertShareUserWithUser:(void(^)(ShareUser *user))insert
+{
+    NSManagedObjectContext *context = self.appDelegate.managedObjectContext;
+    ShareUser *user = [NSEntityDescription insertNewObjectForEntityForName:SHARE inManagedObjectContext:context];
+    insert(user);
+    [context performBlockAndWait:^{
+        [context save:nil];
+    }];
+}
+
+-(void)updateUser:(NSString*)commucode withChange:(void(^)(ShareUser *user))update
+{
+    if (commucode.length == 0)
+    {
+        return;
+    }
+    NSManagedObjectContext *context = self.appDelegate.privateContext;
+    NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:SHARE];
+    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"comucode=%@",commucode];
+    [request setPredicate:predicate];
+    __weak __block ShareUser *user;
+    [context performBlockAndWait:^{
+        __strong typeof(user) strongUser = user;
+        strongUser = [[context executeFetchRequest:request error:nil] lastObject];
+        if (strongUser)
+        {
+            update(strongUser);
+            [context save:nil];
+            [context.parentContext performBlock:^{
+                [context.parentContext save:nil];
+            }];
+        }
+    }];
+}
+
+-(NSArray*)getAuthcode:(NSString*)devuserid
+{
+    NSManagedObjectContext *context = self.appDelegate.managedObjectContext;
+    NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:SHARE];
+    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"devuserid=%@",devuserid];
+    [request setPredicate:predicate];
+    __block ShareUser *user;
+    [context performBlockAndWait:^{
+        user = [[context executeFetchRequest:request error:nil] lastObject];
+    }];
+    return user.authcode;
+}
+
+-(BOOL)isExsistingUser:(NSString *)authcode inArray:(NSArray*)array
+{
+    for (NSString *string in array)
+    {
+        if ([string isEqualToString:authcode])
+        {
+            return YES;
+        }
+    }
+    return NO;
 }
 @end

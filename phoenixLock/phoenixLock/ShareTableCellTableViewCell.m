@@ -24,6 +24,6 @@
 
 - (IBAction)delete:(UIButton *)sender
 {
-    [_delegate deleteSharUser:_path];
+    [self.delegate deleteSharUser:self.path];
 }
 @end

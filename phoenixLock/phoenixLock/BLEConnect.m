@@ -8,23 +8,20 @@
 
 #import "BLEConnect.h"
 
-@interface BLEConnect ()<CBCentralManagerDelegate>
-@property (nonatomic, strong) CBCentralManager *manager;
-@end
-
 @implementation BLEConnect
 
-- (void)viewDidLoad {
+- (void)viewDidLoad
+{
     [super viewDidLoad];
-    _appDelegate = (AppDelegate *)[[UIApplication sharedApplication] delegate];
-    _appDelegate.appLibBleLock._delegate = self;
-    _guid = [self NSStringConversionToNSData:[self.userdefaults objectForKey:@"guid"]];
-    _mac = [_guid subdataWithRange:NSMakeRange(0, 6)];
-    _uuid = [self NSStringConversionToNSData:[self.userdefaults objectForKey:@"uuid"]];
-    _scrB = [self NSStringConversionToNSData:[self.userdefaults objectForKey:@"appToken"]];
-    _scrC = [self NSStringConversionToNSData:[self.userdefaults objectForKey:@"sc"]];
-    _scrD = [self NSStringConversionToNSData:[self.userdefaults objectForKey:@"sd"]];
-    _manager=[[CBCentralManager alloc]initWithDelegate:self queue:nil];
+    self.mac = [self.guid subdataWithRange:NSMakeRange(0, 6)];
+    self.uuid = [self NSStringConversionToNSData:[self.userdefaults objectForKey:@"uuid"]];
+    self.scrB = [self NSStringConversionToNSData:[self.userdefaults objectForKey:@"appToken"]];
+}
+
+-(void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    [self performSelector:@selector(startBindLock) withObject:nil afterDelay:0.2];
 }
 
 -(NSData *) getCurrentTimeInterval
@@ -41,88 +38,144 @@
 }
 
 //******************判断蓝牙打开与否**********************
--(void)centralManagerDidUpdateState:(CBCentralManager *)central{
-    
-    switch (central.state) {
-        case CBCentralManagerStatePoweredOn:{
-            _openBLE.text = @"蓝牙已开启";
-            _next1.text = @"↓";
-            _connectingBLE.text = @"正在连接蓝牙";
+-(void)startBindLock
+{
+    switch (self.appDelegate.appLibBleLock.centralManager.state) {
+        case CBCentralManagerStatePoweredOn:
+        {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.openBLE.text = @"正在打开蓝牙";
+                self.next1.text = @"↓";
+                self.connectingBLE.text = @"正在连接蓝牙";
+            });
+            
             //请求连接设备
-            BOOL isConnected = [_appDelegate.appLibBleLock bleConnectRequest:_mac forbattery:NO];
+            self.appDelegate.appLibBleLock.delegate = self;
+            BOOL isConnected = [self.appDelegate.appLibBleLock bleConnectRequest:self.mac];
             if (isConnected == YES)
             {
-                _next2.text = @"↓";
-                _mateBLE.text = @"正在匹配";
-            }else{
-                _connectingBLE.text = @"匹配失败";
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.next2.text = @"↓";
+                    self.mateBLE.text = @"正在匹配";
+                });
+                
+            }else
+            {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.connectingBLE.text = @"匹配失败";
+                });
+                
             }
         }
             break;
         default:
-            _openBLE.text = @"请开启蓝牙";
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.openBLE.text = @"请开启蓝牙";
+            });
+            
             break;
     }
 }
 
 /*************************蓝牙协议函数的实现**************************/
 
--(void) didConnectConfirm:(NSData *)macAddr status:(Boolean)status{
-
-    if (status) {
-        _connectingBLE.text = @"匹配完成";
-        _mateBLE.text = @"连接成功";
-        _next3.text = @"↓";
-        _checkManager.text = @"正在验证管理员唯一性";
-        self.timer = [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(checkmanager) userInfo:nil repeats:NO];
+-(void) didConnectConfirm:(NSData *)macAddr status:(Boolean)status
+{
+  
+    if (status)
+    {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.connectingBLE.text = @"匹配完成";
+            self.mateBLE.text = @"连接成功";
+            self.next3.text = @"↓";
+            self.checkManager.text = @"正在验证管理员唯一性";
+            dispatch_time_t timedelay = dispatch_time(DISPATCH_TIME_NOW, 0.5 * NSEC_PER_SEC);
+            dispatch_after(timedelay, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                [self checkmanager];
+            });
+            
+        });
+        
     }else
     {
-        _next2.text = @"";
-        _mateBLE.text = @"";
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.next2.text = @"";
+            self.mateBLE.text = @"";
+        });
+        
     }
     
 }
 
--(void) didDisconnectIndication:(NSData *)macAddr{
-
-    _next1.text = @"";
-    _connectingBLE.text = @"";
-    _next2.text = @"";
-    _mateBLE.text = @"";
-    _next3.text = @"";
-    _checkManager.text = @"";
-    _next4.text = @"";
-    _addSuccess.text = @"";
+-(void) didDisconnectIndication:(NSData *)macAddr
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        self.next1.text = @"";
+        self.connectingBLE.text = @"";
+        self.next2.text = @"";
+        self.mateBLE.text = @"";
+        self.next3.text = @"";
+        self.checkManager.text = @"";
+        self.next4.text = @"";
+        self.addSuccess.text = @"";
+    });
+    
 }
 
--(void) didDataSendResponse:(NSData *)macAddr cmd_type:(libCommandType)cmd_type result:(libBleErrorCode)result param_data:(NSData *)param_data{
-        switch (cmd_type) {
-        case libBleCmdBindManager:{
-            if (result){//已存在，清除掉
-                NSMutableData *data = [[NSMutableData alloc] initWithData:_guid];
+-(void) didDataSendResponse:(NSData *)macAddr cmd_type:(libCommandType)cmd_type result:(libBleErrorCode)result param_data:(NSData *)param_data
+{
+    switch (cmd_type) {
+        case libBleCmdBindManager:
+        {
+            if (result)
+            {//已存在，清除掉
+                NSMutableData *data = [[NSMutableData alloc] initWithData:self.guid];
                 [data appendData:param_data];
-                self.timer = [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(clearmanager:) userInfo:data repeats:NO];
-            }else{
-                _checkManager.text = @"验证通过";
-                self.timer = [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(addmanager) userInfo:nil repeats:NO];
+                dispatch_time_t timedelay = dispatch_time(DISPATCH_TIME_NOW, 0.5 * NSEC_PER_SEC);
+                dispatch_after(timedelay, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                    [self clearmanager:data];
+                });
+            }else
+            {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.checkManager.text = @"验证通过";
+                    dispatch_time_t timedelay = dispatch_time(DISPATCH_TIME_NOW, 0.5 * NSEC_PER_SEC);
+                    dispatch_after(timedelay, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                        [self addmanager];
+                    });
+                });
             }
         }break;
             
         case libBleCmdAddManagerOpenLockUUID:{
-            if (!result) {
-                _next4.text = @"↓";
-                _addSuccess.text = @"添加成功";
-                self.timer = [NSTimer scheduledTimerWithTimeInterval:2 target:self selector:@selector(nextpage) userInfo:nil repeats:NO];
-            }else{
-                _next4.text = @"↓";
-                _addSuccess.text = @"添加失败";
+            if (!result)
+            {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.next4.text = @"↓";
+                    self.addSuccess.text = @"添加成功";
+                    [self performSelector:@selector(nextpage) withObject:nil afterDelay:1.0f];
+                });
+            }else
+            {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.next4.text = @"↓";
+                    self.addSuccess.text = @"添加失败";
+                });
+                
             }
         }break;
         
-            case libBleCmdClearManager:{
-                if (!result) {//清除后绑定新用户
-                _checkManager.text = @"验证通过";
-                self.timer = [NSTimer scheduledTimerWithTimeInterval:1 target:self selector:@selector(addmanager) userInfo:nil repeats:NO];
+        case libBleCmdClearManager:
+        {
+                if (!result)
+                {//清除后绑定新用户
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        self.checkManager.text = @"验证通过";
+                        dispatch_time_t timedelay = dispatch_time(DISPATCH_TIME_NOW, 0.5 * NSEC_PER_SEC);
+                        dispatch_after(timedelay, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                            [self addmanager];
+                        });
+                    });
                 }
             }break;
         default:
@@ -130,31 +183,38 @@
     }
 }
 /**************定时指定方法实现**************/
--(void)addmanager{
-    NSMutableData *data = [[NSMutableData alloc] initWithData:_guid];
-    [data appendData:_uuid];
-    [data appendData:_scrB];
-    [data appendData:_scrC];
-    [data appendData:_scrD];
+-(void)addmanager
+{
+    NSMutableData *data = [[NSMutableData alloc] initWithData:self.guid];
+    [data appendData:self.uuid];
+    [data appendData:self.scrB];
+    [data appendData:self.scrC];
+    [data appendData:self.scrD];
     [data appendData:[self getCurrentTimeInterval]];
-    [_appDelegate.appLibBleLock bleDataSendRequest:_mac cmd_type:libBleCmdAddManagerOpenLockUUID param_data:data];
+    self.appDelegate.appLibBleLock.delegate = self;
+    [self.appDelegate.appLibBleLock bleDataSendRequest:self.mac cmd_type:libBleCmdAddManagerOpenLockUUID param_data:data];
 }
 
--(void)clearmanager:(NSTimer*)timer{
-     [_appDelegate.appLibBleLock bleDataSendRequest:_mac cmd_type:libBleCmdClearManager param_data:timer.userInfo];
+-(void)clearmanager:(NSData*)mac
+{
+    self.appDelegate.appLibBleLock.delegate = self;
+     [self.appDelegate.appLibBleLock bleDataSendRequest:self.mac cmd_type:libBleCmdClearManager param_data:mac];
 }
 
--(void)checkmanager{
-    [_appDelegate.appLibBleLock bleDataSendRequest:_mac cmd_type:libBleCmdBindManager param_data:_guid];
+-(void)checkmanager
+{
+    self.appDelegate.appLibBleLock.delegate = self;
+    [self.appDelegate.appLibBleLock bleDataSendRequest:self.mac cmd_type:libBleCmdBindManager param_data:self.guid];
 }
 
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
 }
 
-- (void)nextpage{
-    
-    [_appDelegate.appLibBleLock bleDisconnectRequest:_mac];
+- (void)nextpage
+{
+    self.appDelegate.appLibBleLock.delegate = self;
+    [self.appDelegate.appLibBleLock bleDisconnectRequest:self.mac];
     [self performSegueWithIdentifier:@"confirmadd" sender:self];
 }
 -(void) goBack
@@ -165,7 +225,8 @@
 -(void)viewDidDisappear:(BOOL)animated
 {
     [super viewDidDisappear:animated];
-    [_appDelegate.appLibBleLock bleDisconnectRequest:_mac];
+    self.appDelegate.appLibBleLock.delegate = self;
+    [self.appDelegate.appLibBleLock bleDisconnectRequest:self.mac];
 }
 
 @end

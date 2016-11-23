@@ -13,7 +13,7 @@
 
 -(void)confirm;
 -(void)cancel;
--(void)onGetDate:(NSString*)date type:(DateType)type;
+-(void)onGetDate:(NSString*)date type:(DateType)datetype;
 
 @end
 

@@ -12,6 +12,5 @@
 
 @property (strong, nonatomic) IBOutlet UITextField *search;
 @property (strong, nonatomic) IBOutlet UITableView *tabView;
-@property(retain, nonatomic) NSMutableArray *dataSrc;
-@property(retain, nonatomic) NSMutableArray <SmartLock*>*datasrcdata;
+@property(retain, nonatomic) SmartLock *operLock;
 @end

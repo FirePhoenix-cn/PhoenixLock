@@ -20,20 +20,14 @@
 {
     [super awakeFromNib];
     self.layer.borderWidth = 1.0f;
-    
-    _keytype = 1;
-    
-    _effectimes.delegate = self;
-    
-    _start_time.delegate = self;
-   
-    _end_times.delegate = self;
-    
-    _start_time.enabled = NO;
-    _end_times.enabled = NO;
-    _effectimes.enabled = NO;
+    self.keytype = 1;
+    self.effectimes.delegate = self;
+    self.start_time.delegate = self;
+    self.end_times.delegate = self;
+    self.start_time.enabled = NO;
+    self.end_times.enabled = NO;
+    self.effectimes.enabled = NO;
 }
-
 
 
 - (IBAction)comfirm:(UIButton *)sender
@@ -47,38 +41,38 @@
 
 - (IBAction)tapseg:(UISegmentedControl *)sender
 {
-    _keytype = sender.selectedSegmentIndex + 1;
+    self.keytype = sender.selectedSegmentIndex + 1;
     switch (sender.selectedSegmentIndex) {
         case 0:
         {
-            _start_time.enabled = NO;
-            _end_times.enabled = NO;
-            _effectimes.enabled = NO;
+            self.start_time.enabled = NO;
+            self.end_times.enabled = NO;
+            self.effectimes.enabled = NO;
         }
             break;
             
             
         case 1:
         {
-            _start_time.enabled = YES;
-            _end_times.enabled = YES;
-            _effectimes.enabled = NO;
+            self.start_time.enabled = YES;
+            self.end_times.enabled = YES;
+            self.effectimes.enabled = NO;
         }
             break;
             
         case 2:
         {
-            _start_time.enabled = NO;
-            _end_times.enabled = NO;
-            _effectimes.enabled = YES;
+            self.start_time.enabled = NO;
+            self.end_times.enabled = NO;
+            self.effectimes.enabled = YES;
         }
             break;
             
         case 3:
         {
-            _start_time.enabled = YES;
-            _end_times.enabled = YES;
-            _effectimes.enabled = YES;
+            self.start_time.enabled = YES;
+            self.end_times.enabled = YES;
+            self.effectimes.enabled = YES;
         }
             break;
         default:
@@ -104,13 +98,13 @@
     switch (type)
     {
         case DateTypeOfStart:
-            _start_time.text = date;
+            self.start_time.text = date;
             [self.delegate onGetDate:[self timeFormat:pickdate] type:type];
             
             break;
             
         case DateTypeOfEnd:
-            _end_times.text = date;
+            self.end_times.text = date;
             [self.delegate onGetDate:[self timeFormat:pickdate] type:type];
             
             break;
@@ -128,23 +122,30 @@
     return currentOlderOneDateStr;
 }
 
-
 -(void)textFieldDidBeginEditing:(UITextField *)textField
 {
     if (textField.tag == 10) {
         [self setupDateViewdatetype:0];
         [textField resignFirstResponder];
+        return;
     }
     if (textField.tag == 20) {
         [self setupDateViewdatetype:1];
         [textField resignFirstResponder];
+        return;
     }
-    
 }
 
 -(BOOL)textFieldShouldReturn:(UITextField *)textField
 {
     [textField resignFirstResponder];
+    NSString *fixregex = @"[0-9]{1,6}";
+    NSPredicate *fixpred = [NSPredicate predicateWithFormat:@"SELF MATCHES %@",fixregex];
+    if ([fixpred evaluateWithObject:textField.text])
+    {
+        return YES;
+    }
+    textField.text = @"";
     return YES;
 }
 @end

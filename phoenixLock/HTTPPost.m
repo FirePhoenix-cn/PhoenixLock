@@ -10,6 +10,7 @@
 #import "Reachability.h"
 @interface HTTPPost()
 //@property (nonatomic, strong) NSMutableData *datatempbuff;
+@property(nonatomic, assign) httpPostType postType;
 @end
 
 @implementation HTTPPost
@@ -26,23 +27,7 @@
     return YES;
 }
 
-+ (NSString *) NSDataConversionToNSString:(NSData*)data
-{
-    if (data == nil) {
-        return @"";
-    }
-    
-    NSMutableString *hexString = [NSMutableString string];
-    
-    const unsigned char *p = [data bytes];
-    
-    for (int i=0; i < [data length]; i++)
-        [hexString appendFormat:@"%02x", *p++];
-    
-    return hexString;
-}
-
--(void)httpPostWithurl:(NSString*)urlString
+-(void)httpPostWithurl:(NSString*)urlString type:(httpPostType)type
 {
     if([HTTPPost  isConnectionAvailable] == NO)
     {
@@ -50,39 +35,41 @@
     }
     //_datatempbuff = nil;
     
-    if (_session == nil)
-    {
-        NSURLSessionConfiguration *sessionConfig = [NSURLSessionConfiguration defaultSessionConfiguration];
-        _session = [NSURLSession sessionWithConfiguration:sessionConfig delegate:self delegateQueue:nil];
-        
-    }
+    [self.session getTasksWithCompletionHandler:^(NSArray<NSURLSessionDataTask *> * _Nonnull dataTasks, NSArray<NSURLSessionUploadTask *> * _Nonnull uploadTasks, NSArray<NSURLSessionDownloadTask *> * _Nonnull downloadTasks) {
+        for (NSURLSessionDataTask *task in dataTasks)
+        {
+            [task cancel];
+            
+        }
+    }];
+    
+    self.postType = type;
     NSURL *url = [NSURL URLWithString:urlString];
     NSMutableURLRequest *request=[NSMutableURLRequest requestWithURL:url];
     [request setHTTPMethod:@"POST"];
-    NSURLSessionTask *task = [_session dataTaskWithRequest:request];
+    NSURLSessionDataTask *task = [self.session dataTaskWithRequest:request];
     [task resume];
 }
 
--(void)httpPostWithurl:(NSString*)urlString body:(NSString*)body
+-(void)httpPostWithurl:(NSString*)urlString body:(NSString*)body type:(httpPostType)type
 {
     if([HTTPPost  isConnectionAvailable] == NO)
     {
         return;
     }
     //_datatempbuff = nil;
-    
-    if (_session == nil)
-    {
-        NSURLSessionConfiguration *sessionConfig = [NSURLSessionConfiguration defaultSessionConfiguration];
-        _session = [NSURLSession sessionWithConfiguration:sessionConfig delegate:self delegateQueue:nil];
-    }
+    [self.session getTasksWithCompletionHandler:^(NSArray<NSURLSessionDataTask *> * _Nonnull dataTasks, NSArray<NSURLSessionUploadTask *> * _Nonnull uploadTasks, NSArray<NSURLSessionDownloadTask *> * _Nonnull downloadTasks) {
+        for (NSURLSessionDataTask *task in dataTasks)
+        {
+            [task cancel];
+        }
+    }];
+    self.postType = type;
     NSURL *url = [NSURL URLWithString:urlString];
     NSMutableURLRequest *request=[NSMutableURLRequest requestWithURL:url];
     [request setHTTPMethod:@"POST"];
-    NSData *postBody = [NSData data];
-    postBody = [body dataUsingEncoding:NSUTF8StringEncoding];
-    [request setHTTPBody:postBody];
-    NSURLSessionTask *task = [_session dataTaskWithRequest:request];
+    [request setHTTPBody:[body dataUsingEncoding:NSUTF8StringEncoding]];
+    NSURLSessionDataTask *task = [self.session dataTaskWithRequest:request];
     [task resume];
 }
 
@@ -108,8 +95,17 @@
         }
     }
     
-    [_delegate didRecieveData:dic withTimeinterval:[nettime timeIntervalSinceNow]];
-    dataTask = nil;
+    [self.delegate didRecieveData:dic withTimeinterval:[nettime timeIntervalSinceNow] type:self.postType];
+}
+
+-(NSURLSession *)session
+{
+    if (!_session)
+    {
+        NSURLSessionConfiguration *sessionConfig = [NSURLSessionConfiguration defaultSessionConfiguration];
+        _session = [NSURLSession sessionWithConfiguration:sessionConfig delegate:self delegateQueue:nil];
+    }
+    return _session;
 }
 
 //- (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask

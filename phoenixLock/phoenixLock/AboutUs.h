@@ -6,10 +6,9 @@
 //  Copyright © 2016年 jinou. All rights reserved.
 //
 
-#import <UIKit/UIKit.h>
+#import "ModelViewController.h"
 
-@interface AboutUs : UIViewController
-
+@interface AboutUs : ModelViewController
 @property (strong, nonatomic) IBOutlet UITextView *textv;
 @property (strong, nonatomic) NSString *text;
 @property (strong, nonatomic) NSString *inittitle;

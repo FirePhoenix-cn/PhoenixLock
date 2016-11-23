@@ -12,6 +12,5 @@
 @property (strong, nonatomic) IBOutlet UITextField *phone;
 @property (strong, nonatomic) IBOutlet UITextView *contenttext;
 @property (strong, nonatomic) IBOutlet UILabel *countcontent;
-- (IBAction)send:(UIButton *)sender;
 
 @end

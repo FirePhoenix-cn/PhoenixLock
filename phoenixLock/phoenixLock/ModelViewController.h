@@ -7,7 +7,7 @@
 //
 
 #import <UIKit/UIKit.h>
-
+#import "MBProgressHUD.h"
 @interface ModelViewController : UIViewController
 
 @property(strong, nonatomic) UIBarButtonItem *leftItem;

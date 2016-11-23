@@ -10,11 +10,14 @@
 #import "CellForShare.h"
 #import "CellForUnlock.h"
 #import "MD5Code.h"
-@interface ManageLock ()<HTTPPostDelegate>
+#import "MBProgressHUD.h"
+#import "CellForManageHeader.h"
+#import "CellFormanageFooder.h"
+
+@interface ManageLock ()<CellForManageHeaderDelegate,CellFormanageFooderDelegate>
 {
     NSIndexPath *selectedCell;
-    httpPostType _type;
-    BOOL canmanage;
+    BOOL _isOpenningLock;
 }
 @property (strong,nonatomic) HTTPPost *httppost;
 
@@ -25,368 +28,324 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    
-    _appDelegate = (AppDelegate *)[[UIApplication sharedApplication] delegate];
-    _isEdit = 0;
+    self.isEdit = 0;
     self.title = @"云盾锁";
-    
     //****************添加数据视图*************
-    _tabView = [[UITableView alloc] initWithFrame:CGRectMake(20, 120 + 5 ,  self.view.bounds.size.width - 40,  self.view.bounds.size.height - 120 - 5 - 60) style:UITableViewStylePlain];//数据视图的大小
-    [_tabView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
-    _tabView.delegate = self;
-    _tabView.dataSource = self;
-    _tabView.showsVerticalScrollIndicator = NO;
-    [self.view addSubview:_tabView];
-    
+    self.tabView = [[UITableView alloc] initWithFrame:CGRectMake(20, 120 + 5 ,  self.view.bounds.size.width - 40,  self.view.bounds.size.height - 120 - 5 - 60) style:UITableViewStylePlain];//数据视图的大小
+    [self.tabView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
+    self.tabView.delegate = self;
+    self.tabView.dataSource = self;
+    self.tabView.showsVerticalScrollIndicator = NO;
+    [self.view addSubview:self.tabView];
     //****************初始化数据源*************
-    _dataSrc = [[NSMutableArray alloc] init];//创建一个可变数组来存放单元的数据
-    _datasrcdata = [NSArray arrayWithArray:[self showAllManagerLock]];
-    CellForManageHeader* cell0 = (CellForManageHeader *)[[[NSBundle  mainBundle]  loadNibNamed:@"CellForManageHeader" owner:self options:nil]  lastObject];
-    for (int i = 0; i < [_datasrcdata count]; i++) {
-        [_dataSrc addObject:cell0];
+    self.dataSrc = [[NSMutableArray alloc] init];//创建一个可变数组来存放单元的数据
+    self.datasrcdata = [[self showAllManagerLock] mutableCopy];
+    for (int i = 0; i < [self.datasrcdata count]; i++)
+    {
+        [self.dataSrc addObject:@"CellForManageHeader"];
     }
-    _httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(closeUnlockView) name:@"closeUnlockPage" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(stopTimers) name:@"stopSearch" object:nil];
+    SENDNOTIFY(@"closeProgress")
 }
 
 -(void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    
-    _appDelegate.appLibBleLock._delegate = self;
-    //数据同步
-    [self syndata];
-  
+    [self.appDelegate.searchTimer setFireDate:[NSDate distantFuture]];
+    self.appDelegate.appLibBleLock.delegate = nil;
 }
 
--(void)viewDidAppear:(BOOL)animated
+-(void)viewWillDisappear:(BOOL)animated
 {
-    [super viewDidAppear:animated];
-   
+    [super viewWillDisappear:animated];
+    self.appDelegate.searchLock = NO;
+    [self.appDelegate.searchTimer setFireDate:[NSDate distantPast]];
 }
 
--(void)syndata
+-(void)stopTimers
 {
-    if (![HTTPPost isConnectionAvailable])
-    {
-        canmanage = YES;
-        return;
-    }
-    canmanage = NO;
-    _httppost.delegate = self;
-    
-    NSDateFormatter * formatter = [[NSDateFormatter alloc] init];
-    [formatter setDateFormat: @"yyyyMMddHHmmss"];
-    
-    NSString *opertime = [formatter stringFromDate:[[NSDate alloc] init]];
-    
-    NSString *str = [NSString stringWithFormat:@"account=%@&apptoken=%@&oper_time=%@&uuid=%@&signkey=22jiadfw12e1212jadf9sdafkwezzxwe",[self.userdefaults objectForKey:@"account"],
-                     [self.userdefaults objectForKey:@"appToken"],opertime,
-                     [self.userdefaults objectForKey:@"uuid"]];
-    
-    NSString *sign = [MD5Code md5:str];
-    
-    NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=getdevlist&account=%@&apptoken=%@&uuid=%@&oper_time=%@&signkey=22jiadfw12e1212jadf9sdafkwezzxwe&sign=%@",[self.userdefaults objectForKey:@"account"],
-                       [self.userdefaults objectForKey:@"appToken"],
-                       [self.userdefaults objectForKey:@"uuid"],opertime,sign];
-    _type = getdevlist;
-    [_httppost httpPostWithurl:urlStr];
-}
-
--(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval
-{
-    
-    if ([[dic objectForKey:@"status"] integerValue] != 1) {
-        canmanage = YES;
-        return;
-    }
-    
-    switch (_type)
-    {
-        case getdevlist:
-        {
-            canmanage = YES;
-            
-            NSArray *data = [dic objectForKey:@"data"];
-            for (NSDictionary *lock in data)
-            {
-                [self updateLockMsg:[lock objectForKey:@"globalcode"] withupdate:^(SmartLock *device) {
-                    
-                    device.productdate = [lock objectForKey:@"productdate"];
-                    device.warrantydate = [lock objectForKey:@"warrantydate"];
-                    device.maxshare = [lock objectForKey:@"maxshare"];
-                    device.sharenum = [lock objectForKey:@"sharenum"];
-                    device.battery = [lock objectForKey:@"battery"];
-                    device.distance = [lock objectForKey:@"distance"];
-                }];
-            }
-            _datasrcdata = [NSArray arrayWithArray:[self showAllManagerLock]];
-        }
-            break;
-            
-        default:
-            break;
-    }
+    self.appDelegate.searchLock = YES;
 }
 
 /****************表格视图的协议函数***************/
 
 -(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
     
-    return _dataSrc.count;
+    return self.dataSrc.count;
 }
 
 -(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    UITableViewCell *cell =  [_tabView dequeueReusableCellWithIdentifier:@"cell"];
-    if (cell == nil) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"cell"];
-    }
-    id obj = [_dataSrc objectAtIndex:indexPath.row];
-    if ([obj isKindOfClass:[CellForManageHeader class]])
+    NSString *obj = [self.dataSrc objectAtIndex:indexPath.row];
+    if ([obj isEqualToString:@"CellForManageHeader"])
     {
-        CellForManageHeader *cell0 = (CellForManageHeader *)[[[NSBundle  mainBundle]  loadNibNamed:@"CellForManageHeader" owner:self options:nil]  lastObject];
-        cell0.delegate = self;
-        cell0.path = indexPath;
-        cell0.name.text = [_datasrcdata[indexPath.row] devname];
-        
+        static NSString *CellForManageHeaderId = @"CellForManageHeader";
+        CellForManageHeader *cell = [tableView dequeueReusableCellWithIdentifier:CellForManageHeaderId];
+        if (!cell)
+        {
+            [tableView registerNib:[UINib nibWithNibName:@"CellForManageHeader" bundle:nil] forCellReuseIdentifier:CellForManageHeaderId];
+            cell = [tableView dequeueReusableCellWithIdentifier:CellForManageHeaderId];
+            cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        }
+        NSInteger index = indexPath.row;
+        if (selectedCell != nil && index > selectedCell.row)
+        {
+            index -= 1;
+        }
+        cell.delegate = self;
+        cell.path = indexPath;
+        cell.name.text = [NSString stringWithFormat:@"云盾锁名称: %@",[self.datasrcdata[index] devname]];
         NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-        [dateFormatter setDateFormat:@"yyyyMMdd HH:mm:ss"];
-        NSString *strDate = [NSString stringWithFormat:@"时间:%@",[dateFormatter stringFromDate:[_datasrcdata[indexPath.row] oper_time]]];
-        cell0.time.text = strDate;
-        cell = cell0;
-        
-    }else if ([obj isKindOfClass:[CellFormanageFooder class]])
+        [dateFormatter setDateFormat:@"MM.dd HH:mm"];
+        NSString *strDate = [NSString stringWithFormat:@"时间:%@",[dateFormatter stringFromDate:[self.datasrcdata[index] oper_time]]];
+        cell.time.text = strDate;
+        return cell;
+    }
+    
+    if ([obj isEqualToString:@"CellFormanageFooder"])
     {
-        CellFormanageFooder *cell0 = (CellFormanageFooder *)[[[NSBundle  mainBundle]  loadNibNamed:@"CellFormanageFooder" owner:self options:nil]  lastObject];
-        cell0.managerlock = _datasrcdata[indexPath.row-1];
-        cell0.delegate = self;
-        cell0.path = indexPath;
-        cell0.name.text = [_datasrcdata[indexPath.row-1] devname];
-        cell0.showsharednum.text = [NSString stringWithFormat:@"分享数量:%@/%@",[_datasrcdata[indexPath.row-1] sharenum],[_datasrcdata[indexPath.row-1] maxshare]];
-        cell0.dateofmanu.text = [NSString stringWithFormat:@"生产日期: %@",[_datasrcdata[indexPath.row-1] productdate]];
-        cell0.dateofwarranty.text = [NSString stringWithFormat:@"保修日期: 至%@",[_datasrcdata[indexPath.row-1] warrantydate]];
-        
-        cell0.lockNO.text = [NSString stringWithFormat:@"云盾锁编号: %@",[_datasrcdata[indexPath.row-1] devuserid]];
-        cell0.distance.value = [[_datasrcdata[indexPath.row-1] distance] floatValue];
-        
-        NSInteger battery = [[_datasrcdata[indexPath.row-1] battery] integerValue];
-        
+        static NSString *CellFormanageFooderId = @"CellFormanageFooder";
+        CellFormanageFooder *cell = [tableView dequeueReusableCellWithIdentifier:CellFormanageFooderId];
+        if (!cell)
+        {
+            [tableView registerNib:[UINib nibWithNibName:@"CellFormanageFooder" bundle:nil] forCellReuseIdentifier:CellFormanageFooderId];
+            cell = [tableView dequeueReusableCellWithIdentifier:CellFormanageFooderId];
+            cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        }
+        cell.managerlock = self.datasrcdata[indexPath.row-1];
+        cell.delegate = self;
+        cell.path = indexPath;
+        cell.name.text = [self.datasrcdata[indexPath.row-1] devname];
+        cell.showsharednum.text = [NSString stringWithFormat:@"分享数量:%@/%@",[self.datasrcdata[indexPath.row-1] sharenum],[self.datasrcdata[indexPath.row-1] maxshare]];
+        cell.dateofmanu.text = [NSString stringWithFormat:@"生产日期: %@",[self.datasrcdata[indexPath.row-1] productdate]];
+        cell.dateofwarranty.text = [NSString stringWithFormat:@"保修日期: 至%@",[self.datasrcdata[indexPath.row-1] warrantydate]];
+        cell.lockNO.text = [NSString stringWithFormat:@"云盾锁编号: %@",[self.datasrcdata[indexPath.row-1] devid]];
+        cell.distance.value = [[self.datasrcdata[indexPath.row-1] distance] floatValue];
+        NSInteger battery = [[self.datasrcdata[indexPath.row-1] battery] integerValue];
         dispatch_async(dispatch_get_main_queue(), ^{
             
             if (battery <= 100 && battery > 75)
             {
-                [cell0.battery setImage:[UIImage imageNamed:@"battery100.png"]];
+                [cell.battery setImage:[UIImage imageNamed:@"battery100.png"]];
                 return;
             }
             if (battery <= 75 && battery > 50)
             {
-                [cell0.battery setImage:[UIImage imageNamed:@"battery75.png"]];
+                [cell.battery setImage:[UIImage imageNamed:@"battery75.png"]];
                 return;
             }
             if (battery <= 50 && battery > 25)
             {
-                [cell0.battery setImage:[UIImage imageNamed:@"battery50.png"]];
+                [cell.battery setImage:[UIImage imageNamed:@"battery50.png"]];
                 return;
             }
             if (battery >= 25 && battery > 10)
             {
-                [cell0.battery setImage:[UIImage imageNamed:@"battery25.png"]];
+                [cell.battery setImage:[UIImage imageNamed:@"battery25.png"]];
                 return;
             }
             if (battery < 10)
             {
-                [cell0.battery setImage:[UIImage imageNamed:@"battery0.png"]];
+                [cell.battery setImage:[UIImage imageNamed:@"battery0.png"]];
                 return;
             }
         });
-        cell = cell0;
-        
-    }else if ([obj isKindOfClass:[CellForShare class]])
-    {
-        CellForShare *cell0 = (CellForShare *)[[[NSBundle  mainBundle]  loadNibNamed:@"CellForShare" owner:self options:nil]  lastObject];
-        cell0.path = indexPath;
-         cell0.managerlock = _datasrcdata[indexPath.row-1];
-        cell = cell0;
-    }else if ([obj isKindOfClass:[CellForUnlock class]])
-    {
-        CellForUnlock *cell0 = (CellForUnlock *)[[[NSBundle  mainBundle]  loadNibNamed:@"CellForUnlock" owner:self options:nil]  lastObject];
-        cell0.ismaster = 1;
-        cell0.path = indexPath;
-        
-        cell0.globalcode = [_datasrcdata[indexPath.row-1] globalcode];
-        cell0.devcode = [_datasrcdata[indexPath.row-1] uuid];
-        cell0.authcode = [_datasrcdata[indexPath.row-1] authcode];
-        
-        cell = cell0;
+        return cell;
     }
-    return cell;
+    
+    if ([obj isEqualToString:@"CellForShare"])
+    {
+        static NSString *CellForShareId = @"CellForShare";
+        CellForShare *cell = [tableView dequeueReusableCellWithIdentifier:CellForShareId];
+        if (!cell)
+        {
+            [tableView registerNib:[UINib nibWithNibName:@"CellForShare" bundle:nil] forCellReuseIdentifier:CellForShareId];
+            cell = [tableView dequeueReusableCellWithIdentifier:CellForShareId];
+            cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        }
+        cell.managerlock = self.datasrcdata[indexPath.row-1];
+        return cell;
+    }
+    
+    if ([obj isEqualToString:@"CellForUnlock"])
+    {
+        static NSString *CellForUnlockId = @"CellForUnlock";
+        CellForUnlock *cell = [tableView dequeueReusableCellWithIdentifier:CellForUnlockId];
+        if (!cell)
+        {
+            [tableView registerNib:[UINib nibWithNibName:@"CellForUnlock" bundle:nil] forCellReuseIdentifier:CellForUnlockId];
+            cell = [tableView dequeueReusableCellWithIdentifier:CellForUnlockId];
+            cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        }
+        cell.ismaster = 1;
+        cell.globalcode = [self.datasrcdata[indexPath.row-1] globalcode];
+        cell.devcode = [self.datasrcdata[indexPath.row-1] uuid];
+        cell.authcode = [self.datasrcdata[indexPath.row-1] authcode];
+        cell.devuserid = [self.datasrcdata[indexPath.row-1] devuserid];
+        return cell;
+    }
+    return [[UITableViewCell alloc] init];
 }
 
 -(CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-
-    CGFloat hight;
-    id obj = [_dataSrc objectAtIndex:indexPath.row];
-    if ([obj isKindOfClass:[CellForManageHeader class]])
+    NSString *obj = [self.dataSrc objectAtIndex:indexPath.row];
+    if ([obj isEqualToString:@"CellForManageHeader"])
     {
-        hight = 50;
-    }else if([obj isKindOfClass:[CellFormanageFooder class]]){
-        hight = 315;
-    }else if([obj isKindOfClass:[CellForShare class]]){
-        hight = 200;
-    }else if([obj isKindOfClass:[CellForUnlock class]]){
-        hight = 250;
+        return 50;
+    }else if([obj isEqualToString:@"CellFormanageFooder"]){
+        return 315;
+    }else if([obj isEqualToString:@"CellForShare"]){
+        return 200;
     }
-
-    return hight;
+    return 250;
 }
-
 
 -(void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-}
-/**************************警告显示*************************/
-
--(void)alertdisplay:(NSString *)alertMessage :(NSData*)data{
-
-    _aler = [UIAlertController alertControllerWithTitle:@"提示" message:alertMessage preferredStyle:UIAlertControllerStyleAlert];
-    [_aler addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action){
-        if(data != nil) {
-            
-            NSData *mac = [data subdataWithRange:NSMakeRange(0, 6)];
-            [_appDelegate.appLibBleLock bleDataSendRequest:mac cmd_type:libBleCmdAddManagerOpenLockUUID param_data:data];
-        }
-    }]];
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self presentViewController:_aler animated:YES completion:nil];
-    });
+    [tableView deselectRowAtIndexPath:indexPath animated:NO];
 }
 
 -(void)addshare:(NSInteger)row
 {
-
     //打开分享页面
     CellForShare* cell = (CellForShare *)[[[NSBundle  mainBundle]  loadNibNamed:@"CellForShare" owner:self options:nil]  lastObject];
-    [_dataSrc replaceObjectAtIndex:row withObject:cell];
-    [_tabView reloadData];
+    [self.dataSrc replaceObjectAtIndex:row withObject:cell];
+    [self.tabView reloadData];
 }
 /**************************按钮触发事件**************************/
 -(void)changeTag:(NSInteger)btnTag :(NSIndexPath *)indexPath
 {
-    
-    while (selectedCell.row != indexPath.row)
+    if (_isOpenningLock)
     {
-        if (_dataSrc.count != [_datasrcdata count])
+        [self textExample:@"请等待开锁完成"];
+        return;
+    }
+    if (btnTag == 3)
+    {
+        if (self.dataSrc.count > self.datasrcdata.count)
         {
-            self.alert = [UIAlertController alertControllerWithTitle:@"警告！" message:@"您一次只能管理一个云盾锁！" preferredStyle:UIAlertControllerStyleAlert];
-            [self.alert addAction:[UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-            }]];
+            self.isEdit = !self.isEdit;
+            selectedCell = nil;
+            [self.dataSrc removeObjectAtIndex:indexPath.row+1];
             dispatch_async(dispatch_get_main_queue(), ^{
-                [self presentViewController:self.alert animated:YES completion:nil];
+                [self.tabView reloadData];
             });
-
-            return;
-        }else
-        {
-            selectedCell = indexPath;
+            //return;
         }
+        selectedCell = indexPath;
+        _isOpenningLock = YES;
+        [self.dataSrc insertObject:@"CellForUnlock" atIndex:indexPath.row+1];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.tabView reloadData];
+        });
+        return;
+    }
+    self.isEdit = !self.isEdit;
+    if (selectedCell.row != indexPath.row && selectedCell != nil)
+    {
+        //关闭之前的页面
+        [self.dataSrc removeObjectAtIndex:selectedCell.row+1];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.tabView reloadData];
+        });
+        selectedCell = nil;
+        return;
     }
     selectedCell = indexPath;
+    if (self.isEdit == YES)
+    {
+        [self updateLockMsg:[self.datasrcdata[indexPath.row] devuserid] withupdate:^(SmartLock *device) {
+            device.oper_time = [[NSDate alloc] init];
+        }];
+    }
     switch (btnTag) {
-        case 1:{
-            if (!canmanage)
+        case 1:
+        {
+            if (self.isEdit == YES)
             {
-                return;
-            }
-            _isEdit = !_isEdit;
-            CellFormanageFooder* cell = (CellFormanageFooder *)[[[NSBundle  mainBundle]  loadNibNamed:@"CellFormanageFooder" owner:self options:nil]  lastObject];
-            if (_isEdit == 1)
-            {
-                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
-                {
-                    NSData *guid = [self NSStringConversionToNSData:[_datasrcdata[indexPath.row] globalcode]];
-                    NSData *mac = [guid subdataWithRange:NSMakeRange(0, 6)];
-                    [_appDelegate.appLibBleLock bleConnectRequest:mac forbattery:YES];
-                });
-                [self updateLockMsg:[_datasrcdata[indexPath.row] globalcode] withupdate:^(SmartLock *device) {
-                    device.oper_time = [[NSDate alloc] init];
-                }];
-                [_dataSrc insertObject:cell atIndex:indexPath.row+1];
-                [_tabView reloadData];
+                [self.dataSrc insertObject:@"CellFormanageFooder" atIndex:indexPath.row+1];
+                [self.tabView reloadData];
             }else
             {
-                NSData *guid = [self NSStringConversionToNSData:[_datasrcdata[indexPath.row] globalcode]];
+                NSData *guid = [self NSStringConversionToNSData:[self.datasrcdata[indexPath.row] globalcode]];
                 NSData *mac = [guid subdataWithRange:NSMakeRange(0, 6)];
-                [_appDelegate.appLibBleLock bleDisconnectRequest:mac];
-                [_dataSrc removeObjectAtIndex:indexPath.row+1];
-                [_tabView reloadData];
+                self.appDelegate.appLibBleLock.delegate = self;
+                [self.appDelegate.appLibBleLock bleDisconnectRequest:mac];
+                [self.dataSrc removeObjectAtIndex:indexPath.row+1];
+                [self.tabView reloadData];
+                selectedCell = nil;
             }
             
             break;
         }
-        case 2:{
-            _isEdit = !_isEdit;
-            CellForShare* cell = (CellForShare *)[[[NSBundle  mainBundle]  loadNibNamed:@"CellForShare" owner:self options:nil]  lastObject];
-            if (_isEdit == 1) {
-                
-                [_dataSrc insertObject:cell atIndex:indexPath.row+1];
-                [_tabView reloadData];
-            }else
-            {
-                canmanage = NO;
-                [self syndata];
-                
-                NSData *guid = [self NSStringConversionToNSData:[_datasrcdata[indexPath.row] globalcode]];
-                NSData *mac = [guid subdataWithRange:NSMakeRange(0, 6)];
-                [_appDelegate.appLibBleLock bleDisconnectRequest:mac];
-                [_dataSrc removeObjectAtIndex:indexPath.row+1];
-                [_tabView reloadData];
-            }
-            break;
-        }
-        case 3:{
-            _isEdit = !_isEdit;
-            CellForUnlock* cell = (CellForUnlock *)[[[NSBundle  mainBundle]  loadNibNamed:@"CellForUnlock" owner:self options:nil]  lastObject];
-            if (_isEdit == 1) {
-                
-                [_dataSrc insertObject:cell atIndex:indexPath.row+1];
-                [_tabView reloadData];
-            }else
-            {
-               
-                NSString *globalcode = [_datasrcdata[indexPath.row] globalcode];
-                NSData *guid = [self NSStringConversionToNSData:globalcode];
-                NSData *mac = [guid subdataWithRange:NSMakeRange(0, 6)];
-                [_appDelegate.appLibBleLock bleDisconnectRequest:mac];
-                
-                [_dataSrc removeObjectAtIndex:indexPath.row+1];
-                [_tabView reloadData];
-            }
-            break;
-        }
             
+        case 2:
+        {
+            if (self.isEdit == YES)
+            {
+                [self.dataSrc insertObject:@"CellForShare" atIndex:indexPath.row+1];
+                [self.tabView reloadData];
+            }else
+            {
+                NSData *guid = [self NSStringConversionToNSData:[self.datasrcdata[indexPath.row] globalcode]];
+                NSData *mac = [guid subdataWithRange:NSMakeRange(0, 6)];
+                self.appDelegate.appLibBleLock.delegate = self;
+                [self.appDelegate.appLibBleLock bleDisconnectRequest:mac];
+                [self.dataSrc removeObjectAtIndex:indexPath.row+1];
+                [self.tabView reloadData];
+                selectedCell = nil;
+            }
+            break;
+        }
+
         default:
             break;
     }
 }
 
--(void) goBack
+-(void)closeUnlockView
 {
-    [self.navigationController popViewControllerAnimated:YES];
+    if (self.datasrcdata.count == self.dataSrc.count)
+    {
+        return;
+    }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        _isOpenningLock = NO;
+        selectedCell = nil;
+        [self.dataSrc removeObject:@"CellForUnlock"];
+        [self.tabView reloadData];
+    });
 }
 
--(void)didGetBattery:(NSInteger)battery forMac:(NSData *)mac{}
-
--(void)didDiscoverComplete{}
-
--(void)didDisconnectIndication:(NSData *)macAddr{}
-
--(void)didConnectConfirm:(NSData *)macAddr status:(Boolean)status{}
+-(void) goBack
+{
+    if (selectedCell) {
+        NSData *globalcode = [self NSStringConversionToNSData:[self.datasrcdata[selectedCell.row] globalcode]];
+        NSData *mac = [globalcode.mutableCopy subdataWithRange:NSMakeRange(0, 6)];
+        [self.appDelegate.appLibBleLock bleDisconnectRequest:mac];
+    }
+    [self.navigationController popViewControllerAnimated:YES];
+}
 
 - (void)didReceiveMemoryWarning
 {
     [super didReceiveMemoryWarning];
+}
+
+- (void)textExample:(NSString*)str
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MBProgressHUD *hud = [MBProgressHUD showHUDAddedTo:self.tabView animated:YES];
+        
+        // Set the annular determinate mode to show task progress.
+        hud.mode = MBProgressHUDModeText;
+        hud.label.text = NSLocalizedString(str, @"title1");
+        [hud.label setFont:[UIFont systemFontOfSize:12.0]];
+        hud.offset = CGPointMake(0.f, MBProgressMaxOffset);
+        [hud hideAnimated:YES afterDelay:2.f];
+    });
 }
 
 @end

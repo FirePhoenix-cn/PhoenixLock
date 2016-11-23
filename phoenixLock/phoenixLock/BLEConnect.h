@@ -6,9 +6,9 @@
 //  Copyright © 2016年 jinou. All rights reserved.
 //
 
-#import "AddLock.h"
+#import "LockViewController.h"
 
-@interface BLEConnect : AddLock<libBleLockDelegate>
+@interface BLEConnect : LockViewController<libBleLockDelegate>
 @property (strong, nonatomic) IBOutlet UILabel *openBLE;
 @property (strong, nonatomic) IBOutlet UILabel *next1;
 @property (strong, nonatomic) IBOutlet UILabel *connectingBLE;
@@ -18,7 +18,6 @@
 @property (strong, nonatomic) IBOutlet UILabel *checkManager;
 @property (strong, nonatomic) IBOutlet UILabel *next4;
 @property (strong, nonatomic) IBOutlet UILabel *addSuccess;
-@property (strong, nonatomic) AppDelegate *appDelegate;
 @property (strong,nonatomic) NSData *guid;
 @property (strong,nonatomic) NSData *mac;
 @property (strong,nonatomic) NSData *uuid;

@@ -13,7 +13,7 @@
 
 - (IBAction)cancel:(UIButton *)sender
 {
-    [_delegate cancel];
+    [self.delegate cancel];
 }
 
 - (IBAction)share:(UIButton *)sender
@@ -63,20 +63,20 @@
 
 -(void)doshare:(SSDKPlatformType)plat
 {
-    if (_title == nil)
+    if (self.title == nil)
     {
         return;
     }
-    if (_pic == nil) {
+    if (self.pic == nil) {
         return;
     }
-    if (_url == nil) {
+    if (self.url == nil) {
         return;
     }
     NSMutableDictionary *shareParams = [NSMutableDictionary dictionary];
-    [shareParams SSDKSetupShareParamsByText:_title
-                                     images:@[_pic]
-                                        url:[NSURL URLWithString:_url]
+    [shareParams SSDKSetupShareParamsByText:self.title
+                                     images:@[self.pic]
+                                        url:[NSURL URLWithString:self.url]
                                       title:@"凰腾云盾"
                                        type:SSDKContentTypeAuto];
     [ShareSDK share:plat
@@ -97,14 +97,21 @@
              case SSDKResponseStateFail:
              {
                  UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"分享失败"
-                                                                 message:[NSString stringWithFormat:@"%@",error]
+                                                                 message:[NSString stringWithFormat:@"%@",[error.userInfo objectForKey:@"error_message"]]
                                                                 delegate:nil
-                                                       cancelButtonTitle:@"OK"
+                                                       cancelButtonTitle:@"确定"
                                                        otherButtonTitles:nil, nil];
                  [alert show];
                  break;
              }
-
+             case SSDKResponseStateCancel:
+             {
+                 break;
+             }
+             case SSDKResponseStateBegin:
+             {
+                 break;
+             }
              default:
                  break;
          }

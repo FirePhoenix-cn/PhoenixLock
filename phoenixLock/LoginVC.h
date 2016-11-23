@@ -11,9 +11,6 @@
 @interface LoginVC : UIViewController
 @property (strong, nonatomic) IBOutlet UITextField *userAccount;
 @property (strong, nonatomic) IBOutlet UITextField *userPassword;
-- (IBAction)userLogin:(UIButton *)sender;
-- (IBAction)repassword:(UIButton *)sender;
-- (IBAction)userregister:(UIButton *)sender;
 @property (strong, nonatomic) NSUserDefaults *userdefaults;
 @property (strong, nonatomic) NSDictionary *dataDic;
 

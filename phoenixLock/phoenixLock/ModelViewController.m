@@ -9,18 +9,21 @@
 #import "ModelViewController.h"
 
 @interface ModelViewController ()
-
+@property (strong,nonatomic) UISwipeGestureRecognizer *rightSwipe;
 @end
 
 @implementation ModelViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    _leftItem = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"goback.png"] style:UIBarButtonItemStylePlain target:self action:@selector(goBack)];
-    self.navigationItem.leftBarButtonItem = _leftItem;
-    _leftItem = nil;
-    _userdefault = [NSUserDefaults standardUserDefaults];
-
+    self.title = @"凰腾云盾-账号";
+    self.leftItem = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"goback.png"] style:UIBarButtonItemStylePlain target:self action:@selector(goBack)];
+    self.navigationItem.leftBarButtonItem = self.leftItem;
+    self.leftItem = nil;
+    self.userdefault = [NSUserDefaults standardUserDefaults];
+    self.rightSwipe = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(goBack)];
+    self.rightSwipe.direction = UISwipeGestureRecognizerDirectionRight;
+    [self.view addGestureRecognizer:self.rightSwipe];
 }
 
 -(void)goBack

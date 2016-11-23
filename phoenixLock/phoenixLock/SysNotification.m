@@ -30,7 +30,6 @@
 @interface SysNotification ()<UITableViewDelegate,UITableViewDataSource,HTTPPostDelegate>
 
 @property(strong,nonatomic)HTTPPost *httppost;
-@property(assign,nonatomic)httpPostType posttype;
 @property(strong, nonatomic) NSMutableArray *datasrc;
 @property (strong, nonatomic) NSUserDefaults *userdefaults;
 
@@ -41,31 +40,28 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.title = @"系统消息";
-    _datasrc = [NSMutableArray arrayWithArray:@[]];
+    self.datasrc = [NSMutableArray arrayWithArray:@[]];
     
     self.tableView.delegate = self;
     self.tableView.dataSource = self;
     
-    _httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
+    self.httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
     
-    _userdefaults = [NSUserDefaults standardUserDefaults];
+    self.userdefaults = [NSUserDefaults standardUserDefaults];
 }
 
 -(void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    _httppost.delegate = self;
+    self.httppost.delegate = self;
     NSString *urlStr = @"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=msgpush";
-    NSString *body = [NSString stringWithFormat:@"&account=%@&apptoken=%@",[_userdefaults objectForKey:@"account"],[_userdefaults objectForKey:@"appToken"]];
-    
-    _posttype = sysmsg;
-    [self.httppost httpPostWithurl:urlStr body:body];
+    NSString *body = [NSString stringWithFormat:@"&account=%@&apptoken=%@",[self.userdefaults objectForKey:@"account"],[self.userdefaults objectForKey:@"appToken"]];
+    [self.httppost httpPostWithurl:urlStr body:body type:sysmsg];
 }
 
--(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval
+-(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval type:(httpPostType)type
 {
-    switch (_posttype)
+    switch (type)
     {
         case sysmsg:
         {
@@ -73,10 +69,10 @@
             {
                 for (NSDictionary *dict in [dic objectForKey:@"data"])
                 {
-                    [_datasrc addObject:dict];
+                    [self.datasrc addObject:dict];
                 }
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    [_tableView reloadData];
+                    [self.tableView reloadData];
                 });
             }
         }
@@ -94,19 +90,21 @@
 
 -(NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return _datasrc.count;
+    return self.datasrc.count;
 }
 
 -(UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    syscell *cell = [_tableView dequeueReusableCellWithIdentifier:@"syscell"];
-    if (cell == nil) {
-        cell = [[syscell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"syscell"];
-        cell = (syscell*)[[[NSBundle  mainBundle]  loadNibNamed:@"syscell" owner:self options:nil]  lastObject];
+    static NSString *syscellid = @"syscell";
+    syscell *cell = [self.tableView dequeueReusableCellWithIdentifier:syscellid];
+    if (!cell)
+    {
+        [tableView registerNib:[UINib nibWithNibName:syscellid bundle:nil] forCellReuseIdentifier:syscellid];
+        cell = [self.tableView dequeueReusableCellWithIdentifier:syscellid];
     }
-    cell.titles.text = [_datasrc[indexPath.row] objectForKey:@"title"];
-    cell.times.text = [_datasrc[indexPath.row] objectForKey:@"createtime"];
-    if ([self findedmsgid:[_datasrc[indexPath.row] objectForKey:@"msgid"]])
+    cell.titles.text = [self.datasrc[indexPath.row] objectForKey:@"title"];
+    cell.times.text = [self.datasrc[indexPath.row] objectForKey:@"createtime"];
+    if ([self findedmsgid:[self.datasrc[indexPath.row] objectForKey:@"msgid"]])
     {
         [cell.pic setImage:[UIImage imageNamed:@"openmess.png"]];
     }
@@ -117,8 +115,8 @@
 {
     [tableView deselectRowAtIndexPath:indexPath animated:NO];
     NSMutableArray *newarr = [NSMutableArray arrayWithArray:[self.userdefault objectForKey:@"readedmsgid"]];
-    if (![self findedmsgid:[_datasrc[indexPath.row] objectForKey:@"msgid"]]) {
-        [newarr addObject:[_datasrc[indexPath.row] objectForKey:@"msgid"]];
+    if (![self findedmsgid:[self.datasrc[indexPath.row] objectForKey:@"msgid"]]) {
+        [newarr addObject:[self.datasrc[indexPath.row] objectForKey:@"msgid"]];
         [self.userdefault setObject:newarr forKey:@"readedmsgid"];
         [self.userdefault synchronize];
     }
@@ -128,7 +126,7 @@
         UIStoryboard *sb = [UIStoryboard storyboardWithName:@"Account" bundle:nil];
         AboutUs *next = (AboutUs*)[sb instantiateViewControllerWithIdentifier:@"AboutUs"];
         next.inittitle = @"消息内容";
-        next.text = [_datasrc[indexPath.row] objectForKey:@"content"];
+        next.text = [self.datasrc[indexPath.row] objectForKey:@"content"];
         [self.navigationController pushViewController:next animated:YES];
     });
 }

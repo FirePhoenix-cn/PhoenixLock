@@ -9,16 +9,14 @@
 #import <UIKit/UIKit.h>
 #import "ShareTableCellTableViewCell.h"
 #import "MySmartLock.h"
+#import "TableViewCell.h"
 
-@interface CellForShare : UITableViewCell<UITableViewDataSource,UITableViewDelegate,ShareTableCellTableViewCellDelegate,UITextFieldDelegate,libBleLockDelegate>
+@interface CellForShare : TableViewCell<UITableViewDataSource,UITableViewDelegate,ShareTableCellTableViewCellDelegate,UITextFieldDelegate>
 
 @property (retain, nonatomic) IBOutlet UITableView *shareTable;
-@property (retain, nonatomic) NSMutableArray *datasrc;
+@property (retain, nonatomic) NSMutableArray <NSDictionary*>*datasrc;
+@property (retain, nonatomic) NSArray <NSDictionary*>*datasrcTemp;
 @property (retain, nonatomic) IBOutlet UITextField *accountforshareduser;
-- (IBAction)addshareduser:(UIButton *)sender;
-@property (retain, nonatomic) NSIndexPath * path;
-@property (strong, nonatomic) NSUserDefaults *userdefaults;
-@property (strong, nonatomic) AppDelegate *appDelegate;
 @property (strong, nonatomic) NSData *guid;
 @property (strong, nonatomic) NSData *mac;
 @property (strong, nonatomic) SmartLock *managerlock;

@@ -20,23 +20,23 @@
     if (mobileNumber.length>11)
     {
         NSString *suffix = [mobileNumber.mutableCopy substringWithRange:NSMakeRange(11, mobileNumber.length-11)];
-        char firstletter = [suffix characterAtIndex:0];
-        if ((firstletter >='A' && firstletter <='Z') || (firstletter >='a' && firstletter<='z'))
-        {
+        //char firstletter = [suffix characterAtIndex:0];
+        //if ((firstletter >='A' && firstletter <='Z') || (firstletter >='a' && firstletter<='z'))
+        //{
             
-            NSString *fixregex = @"[A-Z0-9a-z]{1,6}";
-            NSPredicate *fixpred = [NSPredicate predicateWithFormat:@"SELF MATCHES %@",fixregex];
-            if ([fixpred evaluateWithObject:suffix])
-            {
-                mobileNumber = [mobileNumber.mutableCopy substringWithRange:NSMakeRange(0, 11)];
-            }else
-            {
-                return NO;
-            }
+        NSString *fixregex = @"[A-Z0-9a-z]{1,6}";
+        NSPredicate *fixpred = [NSPredicate predicateWithFormat:@"SELF MATCHES %@",fixregex];
+        if ([fixpred evaluateWithObject:suffix])
+        {
+            mobileNumber = [mobileNumber.mutableCopy substringWithRange:NSMakeRange(0, 11)];
         }else
         {
             return NO;
         }
+        //}else
+        //{
+        //    return NO;
+        //}
         
     }
     NSString *mobileNumberRegex = @"[0-9]{11,11}";

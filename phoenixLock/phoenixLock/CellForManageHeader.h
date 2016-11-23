@@ -16,7 +16,6 @@
 @interface CellForManageHeader : UITableViewCell
 
 @property(assign,nonatomic) id<CellForManageHeaderDelegate>delegate;
-- (IBAction)keyBtn:(UIButton *)sender;
 @property (nonatomic) BOOL addKey;
 @property (retain, nonatomic) NSIndexPath * path;
 @property (strong, nonatomic) NSUserDefaults *userdefaults;

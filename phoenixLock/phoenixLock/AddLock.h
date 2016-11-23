@@ -10,7 +10,8 @@
 #import "LockViewController.h"
 @interface AddLock : LockViewController<QRReaderViewControllerDelegate,libBleLockDelegate>
 
-- (IBAction)scanQRCode:(UIButton *)sender;
-@property (retain, nonatomic) IBOutlet UIButton *btn;
-@property (retain, nonatomic) NSString *GUID;
+@property (strong, nonatomic) IBOutlet UIButton *btn;
+@property (strong, nonatomic) NSString *globalcode;
+@property (strong, nonatomic) NSString *sc;
+@property (strong, nonatomic) NSString *sd;
 @end

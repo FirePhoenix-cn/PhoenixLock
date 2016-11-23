@@ -10,9 +10,6 @@
 
 
 @interface Paper ()<HTTPPostDelegate>
-{
-    httpPostType _type;
-}
 
 @end
 
@@ -20,26 +17,25 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    self.title = @"用户协议";
     UIBarButtonItem* leftItem = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"goback.png"] style:UIBarButtonItemStylePlain target:self action:@selector(goBack)];
     self.navigationItem.leftBarButtonItem = leftItem;
-    _httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
+    self.httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
 }
 
 -(void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    _httppost.delegate = self;
+    self.httppost.delegate = self;
     NSString *urlStr = @"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=syscontent";
     NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&action=agreement"];
-    _type = syscontentservice;
-    [_httppost httpPostWithurl :urlStr body:body];
+    [self.httppost httpPostWithurl :urlStr body:body type:syscontentservice];
     
 }
 
--(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval
+-(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval type:(httpPostType)type
 {
-   
-    switch (_type)
+    switch (type)
     {
         case syscontentservice:
         {
@@ -49,7 +45,7 @@
                 NSString *copycontent = [content substringWithRange:NSMakeRange(3, content.length - 7)];
                 dispatch_async(dispatch_get_main_queue(),
                 ^{
-                    _textview.text = copycontent;
+                    self.textview.text = copycontent;
                                    
                 });
                 

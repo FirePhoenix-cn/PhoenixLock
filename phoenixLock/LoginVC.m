@@ -6,9 +6,8 @@
 
 @interface LoginVC ()<UITextFieldDelegate,HTTPPostDelegate,MBProgressHUDDelegate>
 {
-    httpPostType _posttype;
-    NSString *_orderno;
-    NSString *_vercodes;
+    NSString *orderno;
+    NSString *vercodes;
     BOOL isreuuid;
     BOOL isrepassword;
     NSString * newpw;
@@ -28,27 +27,23 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    
     self.view.backgroundColor = [UIColor whiteColor];
-    _userdefaults = [NSUserDefaults standardUserDefaults];
-    _httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
-    
-    _userAccount.delegate = self;
-    _userPassword.delegate = self;
+    self.userdefaults = [NSUserDefaults standardUserDefaults];
+    self.httppost = ((AppDelegate*)[UIApplication sharedApplication].delegate).delegatehttppost;
+    self.userAccount.delegate = self;
+    self.userPassword.delegate = self;
     isreuuid = NO;
     isrepassword = NO;
-    
+    [(UILabel*)[self.view viewWithTag:30] setText:[self.userdefaults objectForKey:@"appversion"]];
 }
 
 -(void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
-    _httppost.delegate = self;
+    self.httppost.delegate = self;
     self.navigationController.navigationBarHidden = YES;
     self.tabBarController.tabBar.hidden = YES;
-    
-    
-    if ([_userdefaults objectForKey:@"uuid"] == nil)
+    if ([self.userdefaults objectForKey:@"uuid"] == nil)
     {
         CFUUIDRef uuid_ref = CFUUIDCreate(NULL);
         CFStringRef uuid_string_ref= CFUUIDCreateString(NULL, uuid_ref);
@@ -58,100 +53,98 @@
         NSArray *arr = [uuid componentsSeparatedByString:@"-"];
         NSMutableString *uuid0 = [[NSMutableString alloc] initWithString:arr[0]];
         [uuid0 appendFormat:@"%@%@%@%@",arr[1],arr[2],arr[3],arr[4]];
-        [_userdefaults setObject:uuid0 forKey:@"uuid"];
-        [_userdefaults synchronize];
+        [self.userdefaults setObject:uuid0 forKey:@"uuid"];
+        [self.userdefaults synchronize];
         uuid = nil;
         arr = nil;
         uuid0 = nil;
         
     }
-    
-    _userAccount.text = [_userdefaults objectForKey:@"account"];
-    if (![_userAccount.text isEqualToString:@""])
+    self.userAccount.text = [self.userdefaults objectForKey:@"account"];
+    if (![self.userAccount.text isEqualToString:@""])
     {
-        _userPassword.text = [_userdefaults objectForKey:@"password"];
+        self.userPassword.text = [self.userdefaults objectForKey:@"password"];
     }
-    
 }
 
 -(void)viewWillDisappear:(BOOL)animated
 {
     [super viewWillDisappear:animated];
-    [_vercodetimer invalidate];
-    _vercodetimer = nil;
+    [self.userdefaults setObject:self.userAccount.text forKey:@"account"];
+    [self.vercodetimer invalidate];
+    self.vercodetimer = nil;
 }
 
 -(void)viewDidAppear:(BOOL)animated
 {
     [super viewDidAppear:animated];
-    
     UIStoryboard *storyboard = [UIStoryboard storyboardWithName:@"Login" bundle:nil];
-    _rigistervc = (RegisterVC*)[storyboard instantiateViewControllerWithIdentifier:@"registerpage"];
-    _losspass = (LosePasswordVC*)[storyboard instantiateViewControllerWithIdentifier:@"repassword"];
+    self.rigistervc = (RegisterVC*)[storyboard instantiateViewControllerWithIdentifier:@"registerpage"];
+    self.losspass = (LosePasswordVC*)[storyboard instantiateViewControllerWithIdentifier:@"repassword"];
 }
 
 - (IBAction)userLogin:(UIButton *)sender
 {
-    
-    _dataDic = nil;
-    
-    [_userPassword resignFirstResponder];
-    
+    self.dataDic = nil;
+    [self.userPassword resignFirstResponder];
     if ([HTTPPost isConnectionAvailable] == NO)
     {
         [self textExamplese:@"没有网络！"];
         return;
     }
-    
-    if ([_userPassword.text isEqualToString:@""]) {
+    if (![CheckCharacter isValidateMobileNumber:self.userAccount.text])
+    {
+        [self textExamplese:@"手机格式有误"];
+        self.userAccount.text = @"";
+        [self.userAccount resignFirstResponder];
         return;
     }
-    
+    if ([self.userPassword.text isEqualToString:@""]) {
+        return;
+    }
     //验证性登录
     logincheck = YES;
     [self login];
-    
 }
 
 -(void)login
 {
-    NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=login&account=%@&password=%@&uuid=%@",_userAccount.text,_userPassword.text,[_userdefaults objectForKey:@"uuid"]];
-    _posttype = login;
-    [self.httppost httpPostWithurl:urlStr];
+    NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=login&account=%@&password=%@&uuid=%@",self.userAccount.text,self.userPassword.text,[self.userdefaults objectForKey:@"uuid"]];
+    [self.httppost httpPostWithurl:urlStr type:login];
     isreuuid = NO;
 }
 
 -(void)loginForNormal
 {
-    if (![CheckCharacter isValidateMobilePassward:_userPassword.text])
+    if (![CheckCharacter isValidateMobilePassward:self.userPassword.text])
     {
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"您的密码过于简单" message:@"是否修改密码" preferredStyle:1];
         UIAlertAction *act1 = [UIAlertAction actionWithTitle:@"好的" style:0 handler:^(UIAlertAction * _Nonnull action) {
             isrepassword = YES;
             dispatch_async(dispatch_get_main_queue(), ^
                            {
-                               _vercodetimer = [[NSTimer alloc] init];
-                               _vercodetimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(presskeysuccess) userInfo:nil repeats:YES];
-                               _orderno = @"";
+                               self.vercodetimer = [[NSTimer alloc] init];
+                               self.vercodetimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(presskeysuccess) userInfo:nil repeats:YES];
+                               orderno = @"";
                                [self voice];
-                               _hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
-                               _hud.label.text = NSLocalizedString(@"等待语音验证...", @"HUD loading title");
-                               _hud.delegate = self;
-                               [_hud hideAnimated:YES afterDelay:60.0];
+                               self.hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
+                               self.hud.label.text = NSLocalizedString(@"等待语音验证...", @"HUD loading title");
+                               self.hud.delegate = self;
+                               [self.hud hideAnimated:YES afterDelay:60.0];
                            });
         }];
         UIAlertAction *act2 = [UIAlertAction actionWithTitle:@"不用" style:0 handler:^(UIAlertAction * _Nonnull action) {
             isrepassword = NO;
             dispatch_async(dispatch_get_main_queue(), ^
                            {
-                               _vercodetimer = [[NSTimer alloc] init];
-                               _vercodetimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(presskeysuccess) userInfo:nil repeats:YES];
-                               _orderno = @"";
+                               self.vercodetimer = [[NSTimer alloc] init];
+                               self.vercodetimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(presskeysuccess) userInfo:nil repeats:YES];
+                               orderno = @"";
                                [self voice];
-                               _hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
-                               _hud.label.text = NSLocalizedString(@"等待语音验证...", @"HUD loading title");
-                               _hud.delegate = self;
-                               [_hud hideAnimated:YES afterDelay:60.0];
+                               self.hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
+                               self.hud.label.text = NSLocalizedString(@"等待语音验证...", @"HUD loading title");
+                               self.hud.delegate = self;
+                               [self.hud hideAnimated:YES afterDelay:60.0];
                            });
         }];
         [alert addAction:act1];
@@ -166,31 +159,30 @@
     isrepassword = NO;
     dispatch_async(dispatch_get_main_queue(), ^
                    {
-                       _vercodetimer = [[NSTimer alloc] init];
-                       _vercodetimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(presskeysuccess) userInfo:nil repeats:YES];
-                       _orderno = @"";
+                       self.vercodetimer = [[NSTimer alloc] init];
+                       self.vercodetimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(presskeysuccess) userInfo:nil repeats:YES];
+                       orderno = @"";
                        [self voice];
-                       _hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
-                       _hud.label.text = NSLocalizedString(@"等待语音验证...", @"HUD loading title");
-                       _hud.delegate = self;
-                       [_hud hideAnimated:YES afterDelay:60.0];
+                       self.hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
+                       self.hud.label.text = NSLocalizedString(@"等待语音验证...", @"HUD loading title");
+                       self.hud.delegate = self;
+                       [self.hud hideAnimated:YES afterDelay:60.0];
                    });
 }
 
--(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval
+-(void)didRecieveData:(NSDictionary *)dic withTimeinterval:(NSTimeInterval)interval type:(httpPostType)type
 {
-    
-    switch (_posttype)
+    switch (type)
     {
         case login:
         {
-            _dataDic = dic;
+            self.dataDic = dic;
             
-            if ([[_dataDic objectForKey:@"status"] intValue] == 1)
+            if ([[self.dataDic objectForKey:@"status"] intValue] == 1)
             {
                 if (logincheck)
                 {
-                    if ([[_dataDic objectForKey:@"status"] isEqualToString:@"1"])
+                    if ([[self.dataDic objectForKey:@"status"] isEqualToString:@"1"])
                     {
                         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
                             [self loginForNormal];
@@ -203,17 +195,17 @@
 
                 if (isreuuid == YES)
                 {
-                    if ([[_dataDic objectForKey:@"status"] integerValue] == 1) {
+                    if ([[self.dataDic objectForKey:@"status"] integerValue] == 1) {
                         
                         //重置uuid
                         NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=reuuid&account=%@&apptoken=%@&uuid=%@&vercode=%@",
-                                           [_dataDic objectForKey:@"account"],
-                                           [_dataDic objectForKey:@"apptoken"],
-                                           [self.userdefaults objectForKey:@"uuid"],_vercodes];
+                                           [self.dataDic objectForKey:@"account"],
+                                           [self.dataDic objectForKey:@"apptoken"],
+                                           [self.userdefaults objectForKey:@"uuid"],vercodes];
                         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
                                        {
-                                           _posttype = reuuid;
-                                           [_httppost httpPostWithurl:urlStr];
+                                
+                                           [self.httppost httpPostWithurl:urlStr type:reuuid];
                                        });
                         
                     }
@@ -223,7 +215,7 @@
                 if (isrepassword == YES)
                 {
                     dispatch_async(dispatch_get_main_queue(), ^{
-                        _hud.label.text = NSLocalizedString(@"修改密码中...", @"HUD loading title");
+                        self.hud.label.text = NSLocalizedString(@"修改密码中...", @"HUD loading title");
                     });
                     
                     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"修改密码" message:@"请输入新的密码，并且自动登录" preferredStyle:UIAlertControllerStyleAlert];
@@ -238,7 +230,7 @@
                         if (![CheckCharacter isValidateMobilePassward:textf.text])
                         {
                             textf.text = @"";
-                            textf.placeholder = @"您的密码依然过于简单";
+                            textf.placeholder = @"密码不符合数字+字母的规则";
                             dispatch_async(dispatch_get_main_queue(), ^{
                                 [self presentViewController:alert animated:true completion:nil];
                             });
@@ -248,9 +240,9 @@
                         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
                         {
 
-                            NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=repassword&account=%@&apptoken=%@&password=%@&passwordnew=%@&vercode=%@",_userAccount.text,[_dataDic objectForKey:@"apptoken"],_userPassword.text,textf.text,_vercodes];
-                            _posttype = repassword;
-                            [_httppost httpPostWithurl:urlStr];
+                            NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=repassword&account=%@&apptoken=%@&password=%@&passwordnew=%@&vercode=%@",self.userAccount.text,[self.dataDic objectForKey:@"apptoken"],self.userPassword.text,textf.text,vercodes];
+                            
+                            [self.httppost httpPostWithurl:urlStr type:repassword];
                         });
                     }]];
                     dispatch_async(dispatch_get_main_queue(), ^{
@@ -262,68 +254,64 @@
                 
                 
                 //判断是否更换用户
-                if ([[_userdefaults objectForKey:@"account"] isEqualToString:_userAccount.text] == 0)
+                if ([[self.userdefaults objectForKey:@"account"] isEqualToString:self.userAccount.text] == 0)
                 {
                     
                     [self clearAllData];
                 }
                 //数据持久化
-                if ([_userdefaults objectForKey:[_userdefaults objectForKey:@"uuid"]] == nil)
+                if ([self.userdefaults objectForKey:[self.userdefaults objectForKey:@"uuid"]] == nil)
                 {
-                    [_userdefaults setObject:_userAccount.text forKey:[_userdefaults objectForKey:@"uuid"]];
+                    [self.userdefaults setObject:self.userAccount.text forKey:[self.userdefaults objectForKey:@"uuid"]];
                 }
-                
-                [_userdefaults setBool:NO forKey:@"quitapp"];
-                [_userdefaults setInteger:[[_dataDic objectForKey:@"signminutes"] integerValue] forKey:@"signminutes"];
-                [_userdefaults setFloat:[[_dataDic objectForKey:@"money"] floatValue] forKey:@"money"];
-                
-               
-                [_userdefaults setObject:_userAccount.text forKey:@"account"];
-                [_userdefaults setObject:_userPassword.text forKey:@"password"];
-                [_userdefaults setObject:[_dataDic objectForKey:@"apptoken"] forKey:@"appToken"];
+                [self.userdefaults setBool:NO forKey:@"quitapp"];
+                [self.userdefaults setInteger:[[self.dataDic objectForKey:@"signminutes"] integerValue] forKey:@"signminutes"];
+                [self.userdefaults setFloat:[[self.dataDic objectForKey:@"money"] floatValue] forKey:@"money"];
+                [self.userdefaults setObject:self.userAccount.text forKey:@"account"];
+                [self.userdefaults setObject:self.userPassword.text forKey:@"password"];
+                [self.userdefaults setObject:[self.dataDic objectForKey:@"apptoken"] forKey:@"appToken"];
                 [self.userdefaults synchronize];
                 
                 dispatch_async(dispatch_get_main_queue(), ^
                 {
-                    [_hud hideAnimated:YES];
+                    [self.hud hideAnimated:YES];
+                    SENDNOTIFY(@"startSearch")
                     [self.navigationController popToRootViewControllerAnimated:YES];
                 });
-            }else if([[_dataDic objectForKey:@"status"] intValue] == -3)
+            }else if([[self.dataDic objectForKey:@"status"] intValue] == -3)
             {
                 //更换终端后验证
                 logincheck = NO;
                 isreuuid = YES;
-                __weak LoginVC *wkSelf = self;
-                
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    _vercodetimer = [[NSTimer alloc] init];
-                    _vercodetimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(presskeysuccess) userInfo:nil repeats:YES];
-                    _orderno = @"";
-                    [wkSelf voice];
-                    _hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
-                    _hud.label.text = NSLocalizedString(@"等待语音验证...", @"HUD loading title");
-                    _hud.delegate = self;
-                    [_hud hideAnimated:YES afterDelay:60.0];
+                    self.vercodetimer = [[NSTimer alloc] init];
+                    self.vercodetimer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(presskeysuccess) userInfo:nil repeats:YES];
+                    orderno = @"";
+                    [self voice];
+                    self.hud = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
+                    self.hud.label.text = NSLocalizedString(@"等待语音验证...", @"HUD loading title");
+                    self.hud.delegate = self;
+                    [self.hud hideAnimated:YES afterDelay:60.0];
                 });
                 
-            }else if([[_dataDic objectForKey:@"status"] intValue] == -2)
+            }else if([[self.dataDic objectForKey:@"status"] intValue] == -2)
             {
                 //清空数据
                 logincheck = NO;
-                _dataDic = nil;
+                self.dataDic = nil;
                 [self textExamplese:@"账号或者密码错误，请重试！"];
                 dispatch_async(dispatch_get_main_queue(), ^
                 {
-                    [_hud hideAnimated:YES];
+                    [self.hud hideAnimated:YES];
                 });
             }else
             {
                 logincheck = NO;
-                _dataDic = nil;
+                self.dataDic = nil;
                 [self textExamplese:@"登录失败"];
                 dispatch_async(dispatch_get_main_queue(), ^
                 {
-                    [_hud hideAnimated:YES];
+                    [self.hud hideAnimated:YES];
                 });
             }
         }
@@ -337,12 +325,12 @@
             {
                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
                 {
-                    _orderno = [dic objectForKey:@"orderno"];
+                    orderno = [dic objectForKey:@"orderno"];
                 });
             }else 
             {
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    [_hud hideAnimated:YES];
+                    [self.hud hideAnimated:YES];
                     [self textExample];
                 });
                 
@@ -350,32 +338,30 @@
             
         }break;
             
-            
         case keypress:
         {
             if ([[dic objectForKey:@"status"] isEqualToString:@"1"])
             {
-                _vercodes = [dic objectForKey:@"keyinfo"];
-                [_vercodetimer invalidate];
-                _vercodetimer = nil;
-                __weak LoginVC *wkSelf = self;
+                vercodes = [dic objectForKey:@"keyinfo"];
+                [self.vercodetimer invalidate];
+                self.vercodetimer = nil;
                 if (isreuuid == YES)
                 {
                     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
                                    {
-                                       [wkSelf reuuidLogin];
+                                       [self reuuidLogin];
                                    });
                     
                 }else
                 {
                     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^
                                    {
-                                       [wkSelf login];
+                                       [self login];
                                    });
                 }
                 dispatch_async(dispatch_get_main_queue(), ^
                 {
-                    _hud.label.text = NSLocalizedString(@"请稍候...", @"HUD loading title");
+                    self.hud.label.text = NSLocalizedString(@"请稍候...", @"HUD loading title");
                 });
                 
             }else if ([[dic objectForKey:@"status"] isEqualToString:@"0"] && ![[dic objectForKey:@"keyinfo"] isEqualToString:@""])
@@ -383,12 +369,11 @@
                 //验证失败
                 dispatch_async(dispatch_get_main_queue(), ^
                                {
-                                   [_vercodetimer invalidate];
-                                   _vercodetimer = nil;
-                                   [_hud hideAnimated:YES];
+                                   [self.vercodetimer invalidate];
+                                   self.vercodetimer = nil;
+                                   [self.hud hideAnimated:YES];
                                    [self textExample];
                                });
-                
             }
         }break;
             
@@ -399,37 +384,37 @@
             {
                 
                 //判断是否更换用户
-                if ([[_userdefaults objectForKey:@"account"] isEqualToString:_userAccount.text] == 0)
+                if ([[self.userdefaults objectForKey:@"account"] isEqualToString:self.userAccount.text] == 0)
                 {
                     [self clearAllData];
                 }
                 //数据持久化
-                if ([_userdefaults objectForKey:[_userdefaults objectForKey:@"uuid"]] == nil)
+                if ([self.userdefaults objectForKey:[self.userdefaults objectForKey:@"uuid"]] == nil)
                 {
-                    [_userdefaults setObject:_userAccount.text forKey:[_userdefaults objectForKey:@"uuid"]];
+                    [self.userdefaults setObject:self.userAccount.text forKey:[self.userdefaults objectForKey:@"uuid"]];
                 }
                 
-                [_userdefaults setBool:NO forKey:@"quitapp"];
-                [_userdefaults setInteger:[[_dataDic objectForKey:@"signminutes"] integerValue] forKey:@"signminutes"];
-                [_userdefaults setFloat:[[_dataDic objectForKey:@"money"] floatValue] forKey:@"money"];
+                [self.userdefaults setBool:NO forKey:@"quitapp"];
+                [self.userdefaults setInteger:[[self.dataDic objectForKey:@"signminutes"] integerValue] forKey:@"signminutes"];
+                [self.userdefaults setFloat:[[self.dataDic objectForKey:@"money"] floatValue] forKey:@"money"];
                 
                 
-                [_userdefaults setObject:_userAccount.text forKey:@"account"];
-                [_userdefaults setObject:_userPassword.text forKey:@"password"];
-                [_userdefaults setObject:[_dataDic objectForKey:@"apptoken"] forKey:@"appToken"];
+                [self.userdefaults setObject:self.userAccount.text forKey:@"account"];
+                [self.userdefaults setObject:self.userPassword.text forKey:@"password"];
+                [self.userdefaults setObject:[self.dataDic objectForKey:@"apptoken"] forKey:@"appToken"];
                 [self.userdefaults synchronize];
 
                 
                 dispatch_async(dispatch_get_main_queue(), ^
                 {
-                    [_hud hideAnimated:YES];
+                    [self.hud hideAnimated:YES];
+                    SENDNOTIFY(@"startSearch")
                     [self.navigationController popToRootViewControllerAnimated:YES];
                 });
             }else
             {
-                [_hud hideAnimated:YES];
+                [self.hud hideAnimated:YES];
             }
-
         }break;
             
         case repassword:
@@ -438,29 +423,30 @@
             if ([[dic objectForKey:@"status"] integerValue] == 1)
             {
                 //判断是否更换用户
-                if ([[_userdefaults objectForKey:@"account"] isEqualToString:_userAccount.text] == 0)
+                if ([[self.userdefaults objectForKey:@"account"] isEqualToString:self.userAccount.text] == 0)
                 {
                     [self clearAllData];
                 }
                 //数据持久化
-                if ([_userdefaults objectForKey:[_userdefaults objectForKey:@"uuid"]] == nil)
+                if ([self.userdefaults objectForKey:[self.userdefaults objectForKey:@"uuid"]] == nil)
                 {
-                    [_userdefaults setObject:_userAccount.text forKey:[_userdefaults objectForKey:@"uuid"]];
+                    [self.userdefaults setObject:self.userAccount.text forKey:[self.userdefaults objectForKey:@"uuid"]];
                 }
                 
-                [_userdefaults setBool:NO forKey:@"quitapp"];
-                [_userdefaults setInteger:[[_dataDic objectForKey:@"signminutes"] integerValue] forKey:@"signminutes"];
-                [_userdefaults setFloat:[[_dataDic objectForKey:@"money"] floatValue] forKey:@"money"];
+                [self.userdefaults setBool:NO forKey:@"quitapp"];
+                [self.userdefaults setInteger:[[self.dataDic objectForKey:@"signminutes"] integerValue] forKey:@"signminutes"];
+                [self.userdefaults setFloat:[[self.dataDic objectForKey:@"money"] floatValue] forKey:@"money"];
                
                
-                [_userdefaults setObject:_userAccount.text forKey:@"account"];
-                [_userdefaults setObject:newpw forKey:@"password"];
-                [_userdefaults setObject:[dic objectForKey:@"apptoken"] forKey:@"appToken"];
+                [self.userdefaults setObject:self.userAccount.text forKey:@"account"];
+                [self.userdefaults setObject:newpw forKey:@"password"];
+                [self.userdefaults setObject:[dic objectForKey:@"apptoken"] forKey:@"appToken"];
                 [self.userdefaults synchronize];
                 
                 dispatch_async(dispatch_get_main_queue(), ^
                                {
-                                   [_hud hideAnimated:YES];
+                                   [self.hud hideAnimated:YES];
+                                   SENDNOTIFY(@"startSearch")
                                    [self.navigationController popToRootViewControllerAnimated:YES];
                                });
 
@@ -469,7 +455,7 @@
                 [self textExamplese:@"修改密码失败"];
                 dispatch_async(dispatch_get_main_queue(), ^
                 {
-                    [_hud hideAnimated:YES];
+                    [self.hud hideAnimated:YES];
                                   
                 });
                 
@@ -483,12 +469,12 @@
 
 -(void)hudWasHidden:(MBProgressHUD *)hud
 {
-    if (_vercodetimer == nil)
+    if (self.vercodetimer == nil)
     {
         return;
     }
-    [_vercodetimer invalidate];
-    _vercodetimer = nil;
+    [self.vercodetimer invalidate];
+    self.vercodetimer = nil;
     [self textExample];
 }
 
@@ -521,31 +507,30 @@
 
 -(void)presskeysuccess
 {
-    if ([_orderno isEqualToString:@""])
+    if ([orderno isEqualToString:@""])
     {
         return;
     }
-    NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=presskey&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&oerderno=%@",_orderno];
-    _posttype = keypress;
-    [_httppost httpPostWithurl:urlStr];
+    NSString *urlStr = [NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=presskey&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&oerderno=%@",orderno];
+    [self.httppost httpPostWithurl:urlStr type:keypress];
 }
 
 -(void)voice
 {
-    _dataDic = nil;
+    self.dataDic = nil;
     NSString *urlStr = @"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=voice";
-    NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@&mobile=%@&module=login&vercode=2&veraction=2&vertype=1",_userAccount.text,_userAccount.text];
-    _posttype = voice;
-    [_httppost httpPostWithurl :urlStr body:body];
+    NSString *body = [NSString stringWithFormat:@"&appid=69639238674&apptoken=jWIe3kf4ZJFfVKA2zZf8Fm8J&account=%@&mobile=%@&module=login&vercode=2&veraction=2&vertype=1",self.userAccount.text,self.userAccount.text];
+    
+    [self.httppost httpPostWithurl :urlStr body:body type:voice];
 }
 
 
 -(void)reuuidLogin
 {
     //重新登录
-    NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=login&account=%@&password=%@&uuid=%@&vercode=%@",_userAccount.text,_userPassword.text,[_userdefaults objectForKey:@"uuid"],_vercodes];
-    [_httppost httpPostWithurl:urlStr];
-    _posttype = login;
+    NSString *urlStr =[NSString stringWithFormat:@"http://safe.gzhtcloud.com/index.php?g=Home&m=Lock&a=login&account=%@&password=%@&uuid=%@&vercode=%@",self.userAccount.text,self.userPassword.text,[self.userdefaults objectForKey:@"uuid"],vercodes];
+    [self.httppost httpPostWithurl:urlStr type:login];
+    
 }
 
 - (IBAction)repassword:(UIButton *)sender
@@ -553,10 +538,11 @@
     [NSTimer scheduledTimerWithTimeInterval:0.1 target:self selector:@selector(repassword) userInfo:nil repeats:NO];
 }
 
--(void)repassword{
+-(void)repassword
+{
     dispatch_async(dispatch_get_main_queue(), ^{
         
-        [self.navigationController pushViewController:_losspass animated:YES];
+        [self.navigationController pushViewController:self.losspass animated:YES];
     });
     
 }
@@ -569,7 +555,7 @@
 {
     dispatch_async(dispatch_get_main_queue(), ^{
         
-        [self.navigationController pushViewController:_rigistervc animated:YES];
+        [self.navigationController pushViewController:self.rigistervc animated:YES];
     });
 }
 
@@ -588,10 +574,11 @@
         {
             [self textExamplese:@"手机格式有误"];
             self.userAccount.text = @"";
-            return NO;
+            [textField resignFirstResponder];
+            return YES;
         }
         [textField resignFirstResponder];
-        [_userPassword becomeFirstResponder];
+        [self.userPassword becomeFirstResponder];
         return YES;
     }
     [textField resignFirstResponder];
@@ -614,18 +601,22 @@
 
 -(void)clearAllData
 {
-    [_userdefaults removeObjectForKey:@"canautounlock"];
-    [_userdefaults removeObjectForKey:@"wirelesslog"];
-    [_userdefaults synchronize];
-    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext];
+    NSManagedObjectContext *context = ((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext;
+    [self.userdefaults removeObjectForKey:@"wirelesslog"];
+    [self.userdefaults synchronize];
+    NSEntityDescription *entity = [NSEntityDescription entityForName:LOCKS inManagedObjectContext:context];
     NSFetchRequest *request = [[NSFetchRequest alloc] init];
     [request setEntity:entity];
-    NSArray *arr = [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext executeFetchRequest:request error:nil];
+    NSArray *arr = [context executeFetchRequest:request error:nil];
     for (NSManagedObject *obj in arr)
     {
-        [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext deleteObject:obj];
+        [context performBlock:^{
+            [context deleteObject:obj];
+        }];
     }
-    [((AppDelegate*)[UIApplication sharedApplication].delegate).managedObjectContext save:nil];
+    [context performBlock:^{
+        [context save:nil];
+    }];
 }
 
 @end

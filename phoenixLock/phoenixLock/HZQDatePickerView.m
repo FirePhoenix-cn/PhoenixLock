@@ -36,6 +36,7 @@
 
 - (void)awakeFromNib
 {
+    [super awakeFromNib];
     self.backgVIew.layer.cornerRadius = 5;
     self.backgVIew.layer.borderWidth = 1;
     self.backgVIew.layer.borderColor = [[UIColor clearColor] CGColor];
